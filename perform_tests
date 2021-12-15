@@ -21,10 +21,17 @@ LANGS="rust haskell c"
 BUILD=false
 TIMEOUT=5s
 
-while getopts b opt; do
+while getopts hbl: opt; do
   case $opt in
     b)
       BUILD=true
+      ;;
+    l)
+      LANGS=$OPTARG
+      ;;
+    h)
+      echo "usage: $(basename $0) [-bh] [-l LANGS]"
+      exit
       ;;
   esac
 done
