@@ -18,8 +18,16 @@ cd $(dirname "$0")
 
 DAYS=$(ls -1 io)
 LANGS="rust haskell c"
-BUILD=true
+BUILD=false
 TIMEOUT=5s
+
+while getopts b opt; do
+  case $opt in
+    b)
+      BUILD=true
+      ;;
+  esac
+done
 
 if $BUILD; then
   for lang in $LANGS; do

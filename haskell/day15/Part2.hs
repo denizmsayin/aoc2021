@@ -1,10 +1,8 @@
-import Control.Monad.State
-import Control.Monad
 import Data.Char (digitToInt)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Bifunctor (bimap)
 
 -- We could use a Haskell Vector here as well, but let's 
 -- keep it more functional by using maps instead
@@ -15,37 +13,55 @@ enumerate2D rows =
     let enumRowsCols = zip [0..] $ map (zip [0..]) rows
      in concatMap (\(i, row) -> map (\(j, x) -> ((i, j), x)) row) enumRowsCols
 
-type ValMap = Map (Int, Int) Int
+data Grid a = Grid (Map (Int, Int) a) Int Int deriving Show
 
-step :: State ValMap Int
-step = incrStep >>= flashStep >> updFlashed 
+gridFromLL :: [[a]] -> Grid a
+gridFromLL ll = 
+    let nRows = length ll
+        nCols = length $ head ll
+        m = Map.fromList $ enumerate2D ll
+     in Grid m nRows nCols
+
+tileGrid :: Int -> Int -> Grid Int -> Grid Int
+tileGrid a b (Grid g m n) =
+    let g' = Map.fromList $ concatFor [0..a] $ \ia ->
+            let is = ia * m
+             in concatFor [0..b] $ \ib ->
+                 let js = ib * n
+                     incr = ia + ib
+                  in concatFor [0..m] $ \i ->
+                      for [0..n] $ \j ->
+                          ((is + i, js + j), (g Map.! (i, j) - 1 + incr) `rem` 9 + 1)
+     in Grid g' (a * m) (b * n)
+  where for = flip map
+        concatFor = flip concatMap
+
+gridkstra :: Grid Int -> (Int, Int) -> (Int, Int) -> Int
+gridkstra (Grid risks m n) from to = 
+    let dists = Map.adjust (const 0) from $ Map.map (const (maxBound :: Int)) risks
+        queue = Set.singleton (0, from)
+     in step dists queue
   where
-     adjOffsets = [(1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1)]
-     incrStep :: State ValMap [(Int, Int)]
-     incrStep = state $ Map.mapAccumWithKey (\l k x -> (if x >= 9 then k : l else l, x + 1)) []
-     flashStep :: [(Int, Int)] -> State ValMap () 
-     flashStep [] = pure () 
-     flashStep (c@(i, j):cs) = do
-         m <- get
-         if m Map.! c > 0 
-            then do
-                modify (Map.adjust (const (-100)) c)
-                let adjCoords = map (\(ioff, joff) -> (i + ioff, j + joff)) adjOffsets 
-                    validAdjs = filter (`Map.member` m) adjCoords
-                    flashAdjs = filter (\c -> m Map.! c >= 9) validAdjs
-                mapM_ (modify . Map.adjust (+1)) validAdjs
-                flashStep $ flashAdjs ++ cs
-            else flashStep cs
-     updFlashed :: State ValMap Int
-     updFlashed = state $ Map.mapAccumWithKey (\c k x -> if x < 0 then (c + 1, 0) else (c, x)) 0
+    neighbors (i, j) = filter (\(ni, nj) -> 0 <= ni && ni < m && 0 <= nj && nj < n) $ 
+        map (bimap (+i) (+j)) [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    step dists queue = 
+        let ((cost, pos), queue') = Set.deleteFindMin queue
+         in if pos == to
+               then cost
+               else uncurry step $ foldl (\(d, q) neighbor ->
+                            let tentativeCost = cost + risks Map.! neighbor
+                                previousCost = dists Map.! neighbor
+                             in if tentativeCost < previousCost
+                                   then let q' = if previousCost == maxBound 
+                                                    then Set.delete (previousCost, neighbor) q
+                                                    else q
+                                            q'' = Set.insert (tentativeCost, neighbor) q'
+                                            d' = Map.adjust (const tentativeCost) neighbor d
+                                         in (d', q'') 
+                                   else (d, q)) (dists, queue') $ neighbors pos 
 
 main :: IO ()
 main = do
-    octList <- map (map digitToInt) . lines <$> getContents
-    let nRows = length octList
-        nCols = length $ head octList
-        size = nRows * nCols
-        octMap = Map.fromList $ enumerate2D octList
-        actions = sequence $ repeat step 
-        flashCounts = evalState actions octMap
-    print $ (+1) $ length $ takeWhile (/= size) flashCounts 
+    grid@(Grid _ m n) <- tileGrid 5 5 . gridFromLL . map (map digitToInt) . lines <$> getContents
+    print $ gridkstra grid (0, 0) (m - 1, n - 1)
+
