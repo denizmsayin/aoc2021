@@ -16,8 +16,8 @@
 | Day07 - Part 2 | ✅ | ✅ | ✅ |
 | Day08 - Part 1 | ✅ | ✅ | ✅ |
 | Day08 - Part 2 | ✅ | ✅ | ✅ |
-| Day09 - Part 1 | ✅ | ✅ |   |
-| Day09 - Part 2 | ✅ | ✅ |   |
+| Day09 - Part 1 | ✅ | ✅ | ✅ |
+| Day09 - Part 2 | ✅ | ✅ | ✅ |
 | Day10 - Part 1 | ✅ | ✅ |   |
 | Day10 - Part 2 | ✅ | ✅ |   |
 | Day11 - Part 1 | ✅ | ✅ |   |
