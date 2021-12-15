@@ -1,48 +1,101 @@
 #! /bin/bash
 
-set -e
-days=$(ls -1 io | sort -n -k 1.4)
-
-# Compile Rust
-echo "Compiling Rust code..."
-cd rust
-
-for day in $days; do
-  echo "$day"
-  cd $day
-  if find Cargo.toml &> /dev/null; then
-    cargo build
-    cargo build --release
+current_target_prefix() {
+  local lang=$(basename $(dirname $(pwd -P)))
+  if [[ $lang == rust ]] && find Cargo.toml &> /dev/null; then
+      echo "./target/release/part"
+  elif [[ $lang == haskell ]]; then
+      echo "./Part"
   else
-    rustc part1.rs
-    rustc part2.rs
+      echo "./part"
   fi
-  cd ..
-  echo
-done
+}
 
-# Run all
+set -e
+DAYS=$(ls -1 io)
+LANGS="rust haskell c"
+BUILD=false
 
-for day in $days; do
-  cd $day
-  iod="../../io/$day"
-  for c in 1 2; do
-    if find Cargo.toml &> /dev/null; then
-      exe=./target/release/part"$c"
-    else
-      exe=./part"$c"
-    fi
-    out=$(mktemp)
-    $exe < "$iod"/input.txt > "$out"
-    if diff -w "$out" "$iod"/part"$c"_output.txt &> /dev/null; then
-      verdict=+
-    else
-      verdict=-
-    fi
-    echo "Rust $day part$c $verdict"
-    rm $out
+if $BUILD; then
+  for lang in $LANGS; do
+    echo "Compiling $lang code..."
+    cd $lang
+    for day in *; do
+      echo "$day"
+      cd $day
+      if [[ $lang == rust ]]; then
+        if find Cargo.toml &> /dev/null; then
+          cargo build
+          cargo build --release
+        else
+          rustc part1.rs
+          rustc part2.rs
+        fi
+      elif [[ $lang == haskell ]]; then
+        ghc -Wall -O2 Part1.hs
+        ghc -Wall -O2 Part2.hs
+      else
+        gcc -Wall -O3 part1.c -o part1
+        gcc -Wall -O3 part2.c -o part2
+      fi
+      cd ..
+      echo
+    done
+    cd ..
+  done
+fi
+
+declare -A results
+for lang in $LANGS; do
+  cd $lang
+  for day in *; do
+    cd $day
+    iod="../../io/$day"
+    for c in 1 2; do
+      part="part$c"
+      exe="$(current_target_prefix)$c"
+      out=$(mktemp)
+      $exe < "$iod"/input.txt > "$out"
+      if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
+        verdict='\033[32m+\033[0m'
+        results[$lang,$day,$c]=1
+      else
+        verdict='\033[31m-\033[0m'
+      fi
+      printf "%8s $day $part $verdict\n" "$lang"
+      rm $out
+    done
+    cd ..
   done
   cd ..
 done
 
-cd ..
+# Could do all in one loop by inverting previous, but meh!
+exec 1>README.md
+
+cols="problem $LANGS"
+for header in $cols; do
+  echo -n "| ${header^}"
+done
+echo "|"
+
+for _ in $cols; do
+  echo -n "| --- "
+done
+echo "|"
+
+for day in $DAYS; do
+  for c in 1 2; do
+    echo -n "| ${day^} - Part $c |"
+    for lang in $LANGS; do
+      if [[ ${results[$lang,$day,$c]} == 1 ]]; then
+        echo -n " ✅ |"
+      else
+        echo -n "   |"
+      fi
+    done
+    echo
+  done
+done
+
+

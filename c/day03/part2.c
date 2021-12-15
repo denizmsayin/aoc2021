@@ -102,6 +102,8 @@ int main(void)
     char linebuf[MAX_BITS+1];
     size_t n = 0;
 
+    return 0;
+
     while (fgets(linebuf, MAX_BITS+1, stdin)) {
         
         n++;
