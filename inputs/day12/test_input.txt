@@ -1,3 +1,0 @@
-start-a
-a-b
-b-end
