@@ -5,7 +5,7 @@
 | Day02 - Part 1 | ✅ | ✅ | ✅ |
 | Day02 - Part 2 | ✅ | ✅ | ✅ |
 | Day03 - Part 1 | ✅ | ✅ | ✅ |
-| Day03 - Part 2 | ✅ | ✅ |   |
+| Day03 - Part 2 | ✅ | ✅ | ✅ |
 | Day04 - Part 1 | ✅ | ✅ |   |
 | Day04 - Part 2 | ✅ | ✅ |   |
 | Day05 - Part 1 | ✅ | ✅ |   |
