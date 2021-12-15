@@ -102,10 +102,6 @@ fn main()
 
     let oxygen_gen_rating = calculate_rating(&diagnostics, true);
     let co2_scrubber_rating = calculate_rating(&diagnostics, false);
-
-    println!("O2 Generator Rating: {}", oxygen_gen_rating);
-    println!("CO2 Scrubber Rating: {}", co2_scrubber_rating);
-    println!("------------------------------");
-    println!("Product: {}", oxygen_gen_rating * co2_scrubber_rating);
+    println!("{}", oxygen_gen_rating * co2_scrubber_rating);
 
 }

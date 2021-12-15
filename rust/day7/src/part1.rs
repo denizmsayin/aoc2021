@@ -25,5 +25,5 @@ fn main()
         total += (x - median).abs();
     }
 
-    println!("Fuel used: {}", total);
+    println!("{}", total);
 }

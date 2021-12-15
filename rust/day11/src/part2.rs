@@ -93,9 +93,8 @@ fn main()
             }
         }
 
-        println!("Step {}", step);
         if all_flashed {
-            println!("All the octopi flashed!");
+            println!("{}", step);
             break;
         }
         

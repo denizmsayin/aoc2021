@@ -50,5 +50,5 @@ fn main()
         sum = next_sum;
     }
     
-    println!("Increases observed {} times", increases);
+    println!("{}", increases);
 }

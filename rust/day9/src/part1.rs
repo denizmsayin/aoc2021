@@ -50,5 +50,5 @@ fn main()
         }
     }
 
-    println!("Total risk: {}", total_risk);
+    println!("{}", total_risk);
 }

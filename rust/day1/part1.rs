@@ -39,5 +39,5 @@ fn main()
         }
     }
 
-    println!("Increases observed {} times", increases);
+    println!("{}", increases);
 }

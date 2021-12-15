@@ -115,9 +115,9 @@ fn main()
             let d = lookup_code(&codebook, &code);
             value = 10 * value + d;
         }
-        println!("Value: {}", value);
 
         total += value;
     }
-    println!("Total: {}", total);
+    
+    println!("{}", total);
 }

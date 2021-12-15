@@ -57,16 +57,12 @@ fn main()
         let mut marked: Vec<Vec<bool>> = vec![vec![false; n]; m];
         marked[*li][*lj] = true;
 
-        println!("---- New search ----");
         while let Some((i, j)) = stack.pop() {
             let x = heatmap[i][j];
-
-            println!("Popped {}, {}", i, j);
 
             if j > 0 {
                 let y = heatmap[i][j-1];
                 if y != 9 && x < y && !marked[i][j-1] {
-                    println!("Pushed {}, {}", i, j-1);
                     marked[i][j-1] = true;
                     stack.push((i, j-1));
                 }
@@ -75,7 +71,6 @@ fn main()
             if i > 0 {
                 let y = heatmap[i-1][j];
                 if y != 9 && x < y && !marked[i-1][j]{
-                    println!("Pushed {}, {}", i-1, j);
                     marked[i-1][j] = true;
                     stack.push((i-1, j));
                 }
@@ -85,7 +80,6 @@ fn main()
                 let y = heatmap[i][j+1];
                 if y != 9 && x < y && !marked[i][j+1] {
                     marked[i][j+1] = true;
-                    println!("Pushed {}, {}", i, j+1);
                     stack.push((i, j+1));
                 }
             }
@@ -94,11 +88,9 @@ fn main()
                 let y = heatmap[i+1][j];
                 if y != 9 && x < y && !marked[i+1][j] {
                     marked[i+1][j] = true;
-                    println!("Pushed {}, {}", i+1, j);
                     stack.push((i+1, j));
                 }
             }
-            println!();
             points += 1;
         }
 
@@ -106,12 +98,7 @@ fn main()
     }
 
     basin_sizes.sort();
-
-    for bs in basin_sizes.iter() {
-        println!("Basin size: {}", bs);
-    }
-    
     basin_sizes.reverse();
 
-    println!("Top-3 mul: {}", basin_sizes[0] * basin_sizes[1] * basin_sizes[2]);
+    println!("{}", basin_sizes[0] * basin_sizes[1] * basin_sizes[2]);
 }

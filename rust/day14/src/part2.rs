@@ -63,7 +63,7 @@ fn main()
 {
     let (mut seq, rules) = read_input();
 
-    for step in 1..41 {
+    for _ in 0..40 {
         let mut next: HashMap<(char, char), i64> = HashMap::new();
 
         for ((c, nc), count) in seq.iter() {
@@ -73,7 +73,6 @@ fn main()
         }
 
         seq = next;
-        println!("{}", step);
     }
     
     
@@ -89,6 +88,6 @@ fn main()
     let min_c = char_ctr.values().min().unwrap();
     let max_c = char_ctr.values().max().unwrap();
 
-    println!("{} - {} = {}", max_c, min_c, max_c - min_c);
+    println!("{}", max_c - min_c);
 }
 

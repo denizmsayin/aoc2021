@@ -127,7 +127,6 @@ fn main()
 
     let mut called_numbers: HashSet<u8> = HashSet::new();
     for value in values {
-        println!("Called: {}", value);
         called_numbers.insert(value);
 
         for (i, board) in boards.iter().enumerate() {
@@ -146,7 +145,7 @@ fn main()
         Some(state) => {
             let score = calculate_win_score(&boards[state.winner_idx], 
                                             &state.called_numbers, state.last_number);
-            println!("Last winner! Last call: {}, Score: {}", state.last_number, score);
+            println!("{}", score);
         },
         None => {
             println!("No winners, weird!");

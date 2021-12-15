@@ -62,5 +62,5 @@ fn main()
 
         score += corruption_score(line.trim());
     }
-    println!("Corruption score: {}", score);
+    println!("{}", score);
 }

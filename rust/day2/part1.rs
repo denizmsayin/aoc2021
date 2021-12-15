@@ -42,5 +42,5 @@ fn main()
         }
     }
 
-    println!("Depth: {}, Position: {}, Product: {}", depth, pos, depth * pos);
+    println!("{}", depth * pos);
 }

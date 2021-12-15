@@ -43,7 +43,7 @@ fn main()
     let n = octmap[0].len() as i64;
 
     let mut total_flashes = 0;
-    for step in 1..101 {
+    for _ in 0..100 {
         let mut flash_stack: Vec<(i64, i64)> = Vec::new();
         let mut flashed: Vec<Vec<bool>> = vec![vec![false; octmap.len()]; octmap[0].len()];
 
@@ -91,7 +91,6 @@ fn main()
             }
         }
 
-        println!("Step {}: {}", step, total_flashes);
     }
-
+    println!("{}", total_flashes);
 }

@@ -43,7 +43,7 @@ fn main()
 {
     let (mut seq, rules) = read_input();
     
-    for step in 1..11 {
+    for _ in 0..10 {
         let mut next: Vec<char> = Vec::new();
 
         for (c, nc) in seq.iter().zip(seq.iter().skip(1)) {
@@ -54,7 +54,6 @@ fn main()
         next.push(*seq.last().unwrap());
 
         seq = next;
-        println!("{}", step);
     }
 
     let mut ctr: HashMap<char, usize> = HashMap::new();
@@ -66,6 +65,6 @@ fn main()
     let min_c = ctr.values().min().unwrap();
     let max_c = ctr.values().max().unwrap();
 
-    println!("{} - {} = {}", max_c, min_c, max_c - min_c);
+    println!("{}", max_c - min_c);
 }
 

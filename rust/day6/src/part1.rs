@@ -1,7 +1,7 @@
 use std::io;
 use std::vec::Vec;
 
-const DAYS: u64 = 256;
+const DAYS: u64 = 80;
 
 fn read_line_must(s: &mut String) -> usize 
 {
@@ -19,7 +19,7 @@ fn main()
 {
     let mut fishies = read_u8_vector();
     
-    for day in 1..DAYS+1 {
+    for _ in 0..DAYS {
         for i in 0..fishies.len() {
             if fishies[i] == 0 {
                 fishies[i] = 6;
@@ -28,7 +28,7 @@ fn main()
                 fishies[i] -= 1;
             }
         }
-        println!("Fishes after day {}: {}", day, fishies.len());
     }
-
+    
+    println!("{}", fishies.len());
 }

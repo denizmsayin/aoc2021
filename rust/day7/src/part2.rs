@@ -37,5 +37,5 @@ fn main()
         }
     }
 
-    println!("Fuel used: {}", best_total);
+    println!("{}", best_total);
 }

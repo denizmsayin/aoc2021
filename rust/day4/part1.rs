@@ -34,17 +34,6 @@ fn read_bingo_board() -> Option<BingoBoard>
     return Some(b);
 }
 
-fn print_bingo_board(b: &BingoBoard) 
-{
-    println!("Board:");
-    for i in 0..BOARD_SIZE {
-        for j in 0..BOARD_SIZE {
-            print!("{} ", b[i][j]);
-        }
-        println!();
-    }
-}
-
 fn read_u8_vector() -> Vec<u8>
 {
     let mut line = String::new();
@@ -117,13 +106,12 @@ fn main()
 
     let mut called_numbers: HashSet<u8> = HashSet::new();
     for value in values {
-        println!("Called: {}", value);
         called_numbers.insert(value);
 
         for board in boards.iter() {
             if has_won(&board, &called_numbers) {
                 let score = calculate_win_score(&board, &called_numbers, value);
-                println!("Winner! Last call: {}, Score: {}", value, score);
+                println!("{}", score);
                 return;
             }
         }

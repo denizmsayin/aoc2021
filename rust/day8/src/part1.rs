@@ -28,5 +28,5 @@ fn main()
         }
     }
 
-    println!("Total 1,4,7,8 appearances: {}", total);
+    println!("{}", total);
 }

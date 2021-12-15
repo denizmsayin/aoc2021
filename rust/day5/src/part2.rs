@@ -1,6 +1,5 @@
 use std::io;
 use std::cmp;
-use std::cmp::Ordering;
 use std::vec::Vec;
 use std::collections::HashSet;
 
@@ -96,15 +95,6 @@ enum Orientation {
     Horizontal,
     PosDiag,
     NegDiag
-}
-
-// Short for compare with context
-fn cmp_wc(o: &Orientation, p1: &Point, p2: &Point) -> Ordering
-{
-    match o {
-        Orientation::Vertical => p1.y.cmp(&p2.y),
-        _ => p1.x.cmp(&p2.x),
-    }
 }
 
 fn seg_contains(s: &Seg, p: &Point) -> bool
@@ -214,7 +204,7 @@ fn find_intersections(s1: &Seg, s2: &Seg) -> Option<Vec<Point>>
             // Not sure if I sure ignore points having the half coordinates...
             // I will first try not ignoring them, by multiplying each coordinate by 2 (STRETCH!)
             
-            let (mut a, mut b) = 
+            let (a, b) = 
                 if matches!(s1_o, Orientation::PosDiag) {
                     (s1.s.y - s1.s.x, s2.s.y + s2.s.x)
                 } else {
@@ -270,16 +260,6 @@ fn find_intersections(s1: &Seg, s2: &Seg) -> Option<Vec<Point>>
     None
 }
 
-fn print_seg(s: &Seg)
-{
-    println!("({}, {}) -> ({}, {})", s.s.x, s.s.y, s.e.x, s.e.y);
-}
-
-fn print_point(p: &Point)
-{
-    println!("({}, {})", p.x, p.y);
-}
-
 fn main()
 {
     let mut segs = Vec::new();
@@ -300,20 +280,14 @@ fn main()
     for i in 0..n {
         for j in (i+1)..n {
             if let Some(points) = find_intersections(&segs[i], &segs[j]) {
-                println!("Testing:");
-                print_seg(&segs[i]);
-                print_seg(&segs[j]);
                 for p in points {
-                    print!("Found: ");
-                    print_point(&p);
                     intersection_points.insert(p);
                 }
-                println!();
             }
         }
     }
 
-    println!("Found {} intersection points.", intersection_points.len());
+    println!("{}", intersection_points.len());
 
     /*
     for p in intersection_points {

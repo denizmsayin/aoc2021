@@ -145,16 +145,6 @@ fn find_intersections(s1: &Seg, s2: &Seg) -> Option<Vec<Point>>
     None
 }
 
-fn print_seg(s: &Seg)
-{
-    println!("({}, {}) -> ({}, {})", s.s.x, s.s.y, s.e.x, s.e.y);
-}
-
-fn print_point(p: &Point)
-{
-    println!("({}, {})", p.x, p.y);
-}
-
 fn main()
 {
     let mut segs = Vec::new();
@@ -172,8 +162,6 @@ fn main()
     let n = segs.len();
     let mut intersection_points = HashSet::new();
 
-    println!("Non-diag segments: {}", n);
-
     for i in 0..n {
         for j in (i+1)..n {
             if let Some(points) = find_intersections(&segs[i], &segs[j]) {
@@ -184,12 +172,6 @@ fn main()
         }
     }
 
-    println!("Found {} intersection points.", intersection_points.len());
-
-    /*
-    for p in intersection_points {
-        print_point(&p);
-    }
-    */
+    println!("{}", intersection_points.len());
 
 }

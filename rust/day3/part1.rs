@@ -48,5 +48,5 @@ fn main()
         }
     }
 
-    println!("Epsilon: {}, Gamma: {}, Power: {}", epsilon, gamma, epsilon * gamma);
+    println!("{}", epsilon * gamma);
 }

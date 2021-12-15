@@ -79,12 +79,12 @@ fn get_paths(graph: &HashMap<String, Vec<String>>, from: &str, to: &str) -> u64
 {
     let mut visited: HashSet<String> = HashSet::new();
     visited.insert(String::from(from));
-    return get_paths_rec(graph, from, to, &mut visited);
+    get_paths_rec(graph, from, to, &mut visited)
 }
 
 fn main()
 {
     let graph = read_graph();
     let total = get_paths(&graph, "start", "end");
-    println!("Paths: {}", total);
+    println!("{}", total);
 }

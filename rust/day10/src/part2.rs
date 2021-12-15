@@ -82,5 +82,5 @@ fn main()
     compls.sort_by_key(get_syntax_score);
 
     let mid_compl = &compls[compls.len() / 2];
-    println!("Mid score: {}", get_syntax_score(mid_compl));
+    println!("{}", get_syntax_score(mid_compl));
 }

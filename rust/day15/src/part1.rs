@@ -53,7 +53,7 @@ fn main()
 
     while let Some((cost, i, j)) = q.pop_first() {
         if i == m - 1 && j == n - 1 { // Bottom right target
-            println!("Min cost: {}", cost);
+            println!("{}", cost);
             return;
         }
 

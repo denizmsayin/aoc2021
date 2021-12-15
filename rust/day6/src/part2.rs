@@ -1,5 +1,4 @@
 use std::io;
-use std::vec::Vec;
 
 // The straightforward list-append simulation is woefully
 // inefficient when the number of days increases. Instead,
@@ -22,16 +21,16 @@ fn main()
         fishies[x] += 1;
     }
     
-    for day in 1..DAYS+1 {
+    for _ in 0..DAYS {
         let zero_count = fishies[0];
         for i in 1..9 {
             fishies[i - 1] = fishies[i];
         }
         fishies[6] += zero_count;
         fishies[8] = zero_count;
-
-        let total_fishies: u64 = fishies.iter().sum();
-        println!("Fishes after day {}: {}", day, total_fishies);
     }
+
+    let total_fishies: u64 = fishies.iter().sum();
+    println!("{}", total_fishies);
 
 }
