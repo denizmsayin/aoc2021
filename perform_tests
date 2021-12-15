@@ -14,7 +14,7 @@ current_target_prefix() {
 set -e
 DAYS=$(ls -1 io)
 LANGS="rust haskell c"
-BUILD=false
+BUILD=true
 
 if $BUILD; then
   for lang in $LANGS; do
@@ -80,7 +80,7 @@ done
 echo "|"
 
 for _ in $cols; do
-  echo -n "| --- "
+  echo -n "| :---: "
 done
 echo "|"
 
