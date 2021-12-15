@@ -10,8 +10,8 @@
 | Day04 - Part 2 | ✅ | ✅ | ✅ |
 | Day05 - Part 1 | ✅ | ✅ | ✅ |
 | Day05 - Part 2 | ✅ | ✅ | ✅ |
-| Day06 - Part 1 | ✅ | ✅ |   |
-| Day06 - Part 2 | ✅ | ✅ |   |
+| Day06 - Part 1 | ✅ | ✅ | ✅ |
+| Day06 - Part 2 | ✅ | ✅ | ✅ |
 | Day07 - Part 1 | ✅ | ✅ |   |
 | Day07 - Part 2 | ✅ | ✅ |   |
 | Day08 - Part 1 | ✅ | ✅ |   |
