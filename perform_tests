@@ -1,0 +1,48 @@
+#! /bin/bash
+
+set -e
+days=$(ls -1 io | sort -n -k 1.4)
+
+# Compile Rust
+echo "Compiling Rust code..."
+cd rust
+
+for day in $days; do
+  echo "$day"
+  cd $day
+  if find Cargo.toml &> /dev/null; then
+    cargo build
+    cargo build --release
+  else
+    rustc part1.rs
+    rustc part2.rs
+  fi
+  cd ..
+  echo
+done
+
+# Run all
+
+for day in $days; do
+  cd $day
+  iod="../../io/$day"
+  for c in 1 2; do
+    if find Cargo.toml &> /dev/null; then
+      exe=./target/release/part"$c"
+    else
+      exe=./part"$c"
+    fi
+    out=$(mktemp)
+    $exe < "$iod"/input.txt > "$out"
+    if diff -w "$out" "$iod"/part"$c"_output.txt &> /dev/null; then
+      verdict=+
+    else
+      verdict=-
+    fi
+    echo "Rust $day part$c $verdict"
+    rm $out
+  done
+  cd ..
+done
+
+cd ..

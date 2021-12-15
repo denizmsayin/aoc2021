@@ -1,0 +1,25 @@
+#! /bin/bash
+
+echo "Cleaning Rust..."
+cd rust
+for d in day*; do
+  cd $d
+  if find Cargo.toml &> /dev/null; then
+    cargo clean
+  else
+    rm -f part1 part2
+  fi
+  cd ..
+done
+
+echo "Cleaning Haskell..."
+cd ..
+cd haskell
+rm -f */*.o */*.ho */*.hi */{Part1,Part2}
+cd ..
+
+echo "Cleaning C..."
+cd c
+rm -f */*.o */{part1,part2}
+cd ..
+
