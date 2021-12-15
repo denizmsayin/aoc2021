@@ -1,0 +1,3 @@
+#! /bin/bash
+
+rm -f */*.o */*.ho */*.hi */{Part1,Part2}
