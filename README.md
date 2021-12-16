@@ -24,8 +24,8 @@
 | Day11 - Part 2 | ✅ | ✅ | ✅ |
 | Day12 - Part 1 | ✅ | ✅ | ✅ |
 | Day12 - Part 2 | ✅ | ✅ | ✅ |
-| Day13 - Part 1 | ✅ | ✅ |   |
-| Day13 - Part 2 | ✅ | ✅ |   |
+| Day13 - Part 1 | ✅ | ✅ | ✅ |
+| Day13 - Part 2 | ✅ | ✅ | ✅ |
 | Day14 - Part 1 | ✅ | ✅ |   |
 | Day14 - Part 2 | ✅ | ✅ |   |
 | Day15 - Part 1 | ✅ | ✅ |   |
