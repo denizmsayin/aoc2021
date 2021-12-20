@@ -1,5 +1,6 @@
 use std::io;
 use std::fmt;
+use std::vec::Vec;
 
 // An overengineered, overperformant first try for the solution.
 // Has some subtle mistakes: some divisors are missed due to an
@@ -11,13 +12,13 @@ fn read_line_must(s: &mut String) -> usize
     return io::stdin().read_line(s).expect("Unable to read line!");
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 enum Elem {
     Number(u64),
     Pair(Box<Pair>),
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 struct Pair {
     l: Elem,
     r: Elem
@@ -211,8 +212,11 @@ fn reduce(p: &mut Pair) {
     }
 }
 
-fn add(p1: Pair, p2: Pair) -> Pair {
-    let mut p3 = Pair { l: Elem::Pair(Box::new(p1)), r: Elem::Pair(Box::new(p2)) };
+fn add(p1: &Pair, p2: &Pair) -> Pair {
+    let p1 = (*p1).clone();
+    let p2 = (*p2).clone();
+    let mut p3 = Pair { l: Elem::Pair(Box::new(p1)), 
+                        r: Elem::Pair(Box::new(p2)) };
     reduce(&mut p3);
     p3
 }
@@ -231,9 +235,7 @@ fn mag(p: &Pair) -> u64 {
 
 fn main()
 {
-    let mut line = String::new();
-    read_line_must(&mut line);
-    let mut sum = parse_line(&line);
+    let mut nums = Vec::new();
     loop {
         let mut line = String::new();
         let bytes = read_line_must(&mut line);
@@ -242,10 +244,22 @@ fn main()
             break;
         }
 
-        let pair = parse_line(&line);
-        sum = add(sum, pair);
-        // println!("{:?}", get_leaf(&mut pair, 2));
+        nums.push(parse_line(&line));
     }
 
-    println!("{}", mag(&sum));
+    let mut max_mag = 0;
+    for i in 0..nums.len() {
+        for j in 1..nums.len() {
+            let m = mag(&add(&nums[i], &nums[j]));
+            if m > max_mag {
+                max_mag = m;
+            }
+            let m = mag(&add(&nums[j], &nums[i]));
+            if m > max_mag {
+                max_mag = m;
+            }
+        }
+    }
+
+    println!("{}", max_mag);
 }
