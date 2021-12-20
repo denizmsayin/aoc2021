@@ -33,4 +33,6 @@
 | Day16 - Part 1 | ✅ | ✅ |   |
 | Day16 - Part 2 | ✅ |   |   |
 | Day17 - Part 1 | ✅ |   |   |
-| Day17 - Part 2 | ✅ |   |   |
+| Day17 - Part 2 |   |   |   |
+| Day18 - Part 1 |   |   |   |
+| Day18 - Part 2 |   |   |   |
