@@ -2,7 +2,6 @@ use std::io;
 use std::vec::Vec;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::collections::HashSet;
 
 fn read_line_must(s: &mut String) -> usize 
 {
@@ -216,6 +215,10 @@ fn generate_direct_transforms(tfs: &HashMap<(usize, usize), TranslRot>) -> HashM
     direct_tfs
 }
 
+fn manhattan(p0: &I3, p1: &I3) -> i64 {
+    (p0.0 - p1.0).abs() + (p0.1 - p1.1).abs() + (p0.2 - p1.2).abs()
+}
+
 fn main()
 {
     let face_tfs = gen_face_transforms();
@@ -238,14 +241,17 @@ fn main()
     let direct_tfs = generate_direct_transforms(&scanner_tfs);
     assert!(direct_tfs.len() == scanners.len());
 
-    // Collect all points into common frame
-    let mut pts = HashSet::new();
+    let mut max_dist = 0;
     for i in 0..scanners.len() {
-        let tf = &direct_tfs[&i];
-        for pt in scanners[i].iter().map(|p| tf.trans(p)) {
-            pts.insert(pt);
+        for j in i+1..scanners.len() {
+            let Transl(pi) = &direct_tfs[&i].t;
+            let Transl(pj) = &direct_tfs[&j].t;
+            let dist = manhattan(&pi, &pj);
+            if dist > max_dist { 
+                max_dist = dist;
+            }
         }
     }
-    
-    println!("{}", pts.len());
+
+    println!("{}", max_dist);
 }
