@@ -36,5 +36,5 @@
 | Day17 - Part 2 | ✅ |   |   |
 | Day18 - Part 1 | ✅ |   |   |
 | Day18 - Part 2 | ✅ |   |   |
-| Day19 - Part 1 |   |   |   |
-| Day19 - Part 2 |   |   |   |
+| Day19 - Part 1 | ✅ |   |   |
+| Day19 - Part 2 | ✅ |   |   |
