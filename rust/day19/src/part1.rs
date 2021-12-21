@@ -1,14 +1,15 @@
 use std::io;
-use std::fmt;
 use std::vec::Vec;
 use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::collections::HashSet;
 
 fn read_line_must(s: &mut String) -> usize 
 {
     return io::stdin().read_line(s).expect("Unable to read line!");
 }
 
-#[derive(Debug,Clone,PartialEq,Eq)]
+#[derive(Debug,Clone,PartialEq,Eq,Hash)]
 struct I3(i64, i64, i64);
 
 #[derive(Debug,Clone)]
@@ -24,12 +25,17 @@ struct TranslRot {
 }
 
 trait Transform {
+    const UNIT: Self;
     fn trans(&self, p: &I3) -> I3;
     fn inv(&self) -> Self;
     fn comp(&self, o: &Self) -> Self;
 }
 
 impl Transform for Rotation {
+    const UNIT: Rotation = Rotation(I3(1, 0, 0),
+                                    I3(0, 1, 0),
+                                    I3(0, 0, 1));
+    
     // Need to avoid arbitrary 3x3 matrix manually, since there are no checks...
     fn trans(&self, p: &I3) -> I3 {
         I3(dot(&self.0, p), dot(&self.1, p), dot(&self.2, p))
@@ -57,6 +63,8 @@ impl Transform for Rotation {
 }
 
 impl Transform for Transl {
+    const UNIT: Transl = Transl(I3(0, 0, 0));
+
     fn trans(&self, p: &I3) -> I3 {
         let t = &self.0;
         I3(t.0 + p.0, t.1 + p.1, t.2 + p.2)
@@ -73,6 +81,8 @@ impl Transform for Transl {
 }
 
 impl Transform for TranslRot {
+    const UNIT: TranslRot = TranslRot { rot: Transform::UNIT, t: Transform::UNIT };
+
     fn trans(&self, p: &I3) -> I3 {
         self.t.trans(&self.rot.trans(p))
     }
@@ -95,10 +105,6 @@ impl Transform for TranslRot {
 fn dot(a: &I3, b: &I3) -> i64 {
     a.0 * b.0 + a.1 * b.1 + a.2 * b.2
 }
-
-const UNIT: Rotation = Rotation(I3(1, 0, 0),
-                                I3(0, 1, 0),
-                                I3(0, 0, 1));
  
 const ROT_X: Rotation = Rotation(I3(1, 0, 0),
                                  I3(0, 0, -1),
@@ -121,7 +127,7 @@ fn gen_face_transforms() -> Vec<Rotation> {
         [ (*t).clone(), r1, r2, r3 ]
     }
 
-    let tf0 = UNIT;
+    let tf0 = Transform::UNIT;
     let tf1 = ROT_Y;
     let tf2 = ROT_Y.comp(&tf1);
     let tf3 = ROT_Y.comp(&tf2);
@@ -185,8 +191,29 @@ fn match_scanners(s1: &[I3], s0: &[I3], rots: &[Rotation]) -> Option<TranslRot> 
     best_params
 }
 
-fn generate_to_0_transforms(tfs: &HashMap<(usize, usize), TranslRot>) -> Vec<TranslRot> {
-    Vec::new()
+fn generate_direct_transforms(tfs: &HashMap<(usize, usize), TranslRot>) -> HashMap<usize, TranslRot> {
+    // The edge list makes for an inefficient graph, but oh well!
+    let edge_list: Vec<&(usize, usize)> = tfs.keys().collect();
+    let mut direct_tfs = HashMap::new();
+    let mut q: VecDeque<usize> = VecDeque::new();
+    direct_tfs.insert(0, Transform::UNIT);
+    q.push_back(0);
+    while let Some(cur) = q.pop_front() {
+        // Find neighbors (reversed!)
+        let neighbors: Vec<usize> = edge_list.iter()
+            .filter(|(_, to)| *to == cur)
+            .map(|(from, _)| *from)
+            .collect();
+        for &ni in neighbors.iter() {
+            if !direct_tfs.contains_key(&ni) {
+                let tf = &tfs[&(ni, cur)];
+                let direct_tf = tf.comp(&direct_tfs[&cur]); 
+                direct_tfs.insert(ni, direct_tf);
+                q.push_back(ni);
+            }
+        }
+    }
+    direct_tfs
 }
 
 fn main()
@@ -203,16 +230,39 @@ fn main()
         for j in i+1..scanners.len() {
             if let Some(etf) = match_scanners(&scanners[i], &scanners[j], &face_tfs) {
                 println!("Matched {} -> {}", i, j);
-                println!("{:?}", etf.inv().comp(&etf));
                 scanner_tfs.insert((j, i), etf.inv());
                 scanner_tfs.insert((i, j), etf);
             }
         }
     }
 
-    for (p, tf) in scanner_tfs.iter() {
-        println!("{:?} {:?}", p, tf);
+    let direct_tfs = generate_direct_transforms(&scanner_tfs);
+    assert!(direct_tfs.len() == scanners.len());
+    
+    for (i, tf) in direct_tfs.iter() {
+        println!("{}: {:?}", i, tf);
     }
+
+    return;
+
+    // Collect all points into common frame
+    let mut pts = HashSet::new();
+    for i in 0..scanners.len() {
+        let tf = &direct_tfs[&i];
+        for pt in scanners[i].iter().map(|p| tf.trans(p)) {
+            pts.insert(pt);
+        }
+    }
+
+    println!("{}", direct_tfs.len());
+
+    for pt in pts.iter() {
+        println!("{:?}", pt);
+    }
+    println!("{}", pts.len());
+//     for (p, tf) in scanner_tfs.iter() {
+//         println!("{:?} {:?}", p, tf);
+//     }
     
 
 //     for s in scanners.iter() {
