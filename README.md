@@ -44,3 +44,5 @@
 | Day21 - Part 2 | ✅ |   |   |
 | Day22 - Part 1 | ✅ |   |   |
 | Day22 - Part 2 | ✅ |   |   |
+| Day23 - Part 1 | ✅ |   |   |
+| Day23 - Part 2 | ✅ |   |   |
