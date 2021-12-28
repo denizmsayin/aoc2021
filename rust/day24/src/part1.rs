@@ -5,7 +5,7 @@ fn read_line_must(s: &mut String) -> usize {
     return io::stdin().read_line(s).expect("Unable to read line!");
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Op {
     Add,
     Multiply,
@@ -14,7 +14,7 @@ enum Op {
     Equal,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Term {
     Int(i64),
     Unknown(usize),
@@ -88,6 +88,62 @@ fn operate(op: &Op, x: i64, y: i64) -> i64 {
     }
 }
 
+fn reduce(t: &Term) -> Term {
+    match t {
+        Term::Expr(op, left, right) => 
+            match op {
+                Op::Add => {
+                    if let Term::Int(0) = **left {
+                        reduce(right)
+                    } else if let Term::Int(0) = **right {
+                        reduce(left)
+                    } else {
+                        t.clone()
+                    }
+                },
+                Op::Multiply => {
+                    if let Term::Int(0) = **left {
+                        Term::Int(0)
+                    } else if let Term::Int(0) = **right {
+                        Term::Int(0)
+                    } else if let Term::Int(1) = **left {
+                        reduce(right)
+                    } else if let Term::Int(1) = **right {
+                        reduce(left)
+                    } else {
+                        t.clone()
+                    }
+                },
+                Op::Divide => {
+                    if let Term::Int(0) = **left {
+                        Term::Int(0)
+                    } else if let Term::Int(1) = **right {
+                        reduce(left)
+                    } else {
+                        t.clone()
+                    }
+                },
+                Op::Modulo => {
+                    if let Term::Int(0) = **left {
+                        Term::Int(0)
+                    } else if let Term::Int(1) = **right {
+                        Term::Int(0)
+                    } else {
+                        t.clone()
+                    }
+                }
+                Op::Equal => {
+                    if **left == **right {
+                        Term::Int(1)
+                    } else {
+                        t.clone()
+                    }
+                }
+            }
+        _ => t.clone(),
+    }
+}
+
 fn perform(cmd: &Command, s: &mut State, uctr: &mut usize) {
     match cmd {
         Command::Input(c) => {
@@ -106,7 +162,25 @@ fn perform(cmd: &Command, s: &mut State, uctr: &mut usize) {
             if let (Term::Int(v0), Term::Int(v1)) = (var_term, op_term.clone()) {
                 s[var_i] = Term::Int(operate(op, *v0, v1));
             } else {
-                s[var_i] = Term::Expr(*op, Box::new(var_term.clone()), Box::new(op_term));
+                s[var_i] = reduce(&Term::Expr(*op, Box::new(var_term.clone()), Box::new(op_term)));
+            }
+        }
+    }
+}
+
+fn evaluate(term: &Term, values: &[i64]) -> i64 {
+    match term {
+        Term::Int(x) => *x,
+        Term::Unknown(id) => values[*id],
+        Term::Expr(op, left, right) => {
+            let lv = evaluate(left, values);
+            let rv = evaluate(right, values);
+            match op {
+                Op::Add => lv + rv,
+                Op::Multiply => lv * rv,
+                Op::Divide => lv / rv,
+                Op::Modulo => lv % rv,
+                Op::Equal => if lv == rv { 1 } else { 0 },
             }
         }
     }
@@ -115,6 +189,7 @@ fn perform(cmd: &Command, s: &mut State, uctr: &mut usize) {
 fn main() {
     let mut state: State = [Term::Int(0), Term::Int(0), Term::Int(0), Term::Int(0)];
     let mut unknown_counter = 0;
+    let mut i = 0;
     loop {
         let mut line = String::new();
         let bytes = read_line_must(&mut line);
@@ -126,8 +201,14 @@ fn main() {
 
         perform(&cmd, &mut state, &mut unknown_counter);
 
-        println!("{:?}", cmd);
-        println!("{:?}", state);
-        println!("*********************");
+        i += 1;
+        eprintln!("{}", i);
+        eprintln!("{:?}", state);
     }
+    // println!("{:?}", state);
+//     println!("State computed.");
+//     let values = [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9];
+//     for i in 0..1000000 {
+//         println!("{}-result: {}", i, evaluate(&state[c2i(b'z')], &values));
+//     }
 }
