@@ -19,15 +19,15 @@ b2n = foldl (\a x -> fromEnum x + 2*a) 0
 
 parsePacket :: State [Bool] Int
 parsePacket = do
-    ver_num <- b2n <$> state (splitAt 3)
-    type_id <- b2n <$> state (splitAt 3)
-    if type_id == 4
+    verNum <- b2n <$> state (splitAt 3)
+    typeId <- b2n <$> state (splitAt 3)
+    if typeId == 4
        then do
-           val_len <- consumeValuePacket
-           pure ver_num
+           consumeValuePacket
+           pure verNum
        else do
-           sub_ver_nums <- parseSubpackets
-           pure $ ver_num + sum sub_ver_nums
+           subVerNums <- parseSubpackets
+           pure $ verNum + sum subVerNums
   where
     consumeValuePacket :: State [Bool] ()
     consumeValuePacket = do
@@ -35,8 +35,6 @@ parsePacket = do
         if head slice -- continuation bit
            then consumeValuePacket
            else pure () 
-    combineParse :: ([Int], Int) -> (Int, Int) -> ([Int], Int)
-    combineParse (xs, c) (x, xc) = (x : xs, c + xc)
     parseSubpackets :: State [Bool] [Int]
     parseSubpackets = do
         len_id <- head <$> state (splitAt 1)
@@ -58,6 +56,6 @@ parsePacket = do
 main :: IO ()
 main = do
     bits <- concatMap hex2bits . head . lines <$> getContents
-    let ver_sum = evalState parsePacket bits
-    print ver_sum
+    let verSum = evalState parsePacket bits
+    print verSum
 

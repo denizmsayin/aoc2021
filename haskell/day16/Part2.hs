@@ -17,50 +17,59 @@ hex2bits = n2b 4 . hex2num
 b2n :: [Bool] -> Int
 b2n = foldl (\a x -> fromEnum x + 2*a) 0
 
-parsePacket :: State [Bool] (Int, Int)
+parsePacket :: State [Bool] Int
 parsePacket = do
-    modify $ drop 3
-    type_id <- b2n <$> state (splitAt 3)
-    if type_id == 4
-       then do
-           (val, val_len) <- consumeValuePacket
-           pure (val, 6 + val_len)
+    modify (drop 3) -- drop the version number
+    typeId <- b2n <$> state (splitAt 3)
+    if typeId == 4
+       then parseValuePacket
        else do
-           (sub_ver_nums, sub_len) <- parseSubpackets
-           pure (ver_num + sum sub_ver_nums, 7 + sub_len)
+           subValues <- parseSubpackets
+           if 0 <= typeId && typeId < 4
+              then let operator = case typeId of 0 -> sum
+                                                 1 -> product
+                                                 2 -> minimum
+                                                 _ -> maximum
+                    in pure $ operator subValues
+              else let comparator = case typeId of 5 -> (>)
+                                                   6 -> (<)
+                                                   7 -> (==)
+                                                   _ -> error "typeId is not between 0-7"
+                       [x, y] = subValues
+                    in pure $ fromEnum $ comparator x y
   where
-    consumeValuePacket :: State [Bool] (Int, Int)
-    consumeValuePacket = do
-        slice <- state $ splitAt 5
-        let (contbit:rest) = slice
-            x = b2n rest
-        if contbit -- continuation bit
-           then (+5) <$> consumeValuePacket
-           else pure (x, 5)
-    combineParse :: ([Int], Int) -> (Int, Int) -> ([Int], Int)
-    combineParse (xs, c) (x, xc) = (x : xs, c + xc)
-    parseSubpackets :: State [Bool] ([Int], Int)
+    parseValuePacket :: State [Bool] Int
+    parseValuePacket = go 0
+      where 
+        go :: Int -> State [Bool] Int
+        go valueSoFar = do
+            slice <- state $ splitAt 5
+            let (cont:valueBits) = slice 
+                total = valueSoFar * 16 + b2n valueBits
+            if cont -- continuation bit
+               then go total
+               else pure total 
+    parseSubpackets :: State [Bool] [Int]
     parseSubpackets = do
-        len_id <- head <$> state (splitAt 1)
-        (parses, len) <- if len_id
+        lenId <- head <$> state (splitAt 1)
+        if lenId
            then do
-               num_subpackets <- b2n <$> state (splitAt 11)
-               parses <- replicateM num_subpackets parsePacket
-               pure (parses, 11)
+               numSubpackets <- b2n <$> state (splitAt 11)
+               replicateM numSubpackets parsePacket
            else do
-               num_bits <- b2n <$> state (splitAt 15)
-               parses <- parseNBits num_bits
-               pure (parses, 15)
-        pure $ foldl combineParse ([], len) parses
-    parseNBits 0 = pure []
-    parseNBits n = do
-        parse@(_, len) <- parsePacket
-        rest <- parseNBits (n - len)
-        pure $ parse : rest
+               numBits <- b2n <$> state (splitAt 15)
+               subpacketBits <- state (splitAt numBits)
+               pure (evalState parseUntilNone subpacketBits)
+    parseUntilNone :: State [Bool] [Int]
+    parseUntilNone = do
+        s <- get
+        if null s
+           then pure []
+           else liftM2 (:) parsePacket parseUntilNone
 
 main :: IO ()
 main = do
     bits <- concatMap hex2bits . head . lines <$> getContents
-    let (ver_sum, _) = evalState parsePacket bits
-    print ver_sum
+    let verSum = evalState parsePacket bits
+    print verSum
 
