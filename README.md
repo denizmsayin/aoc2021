@@ -46,5 +46,5 @@
 | Day22 - Part 2 | ✅ |   |   |
 | Day23 - Part 1 | ✅ |   |   |
 | Day23 - Part 2 | ✅ |   |   |
-| Day24 - Part 1 |   |   |   |
-| Day24 - Part 2 |   |   |   |
+| Day24 - Part 1 | ✅ |   |   |
+| Day24 - Part 2 | ✅ |   |   |

@@ -13,4 +13,8 @@ path = "src/part1.rs"
 name = "part2"
 path = "src/part2.rs"
 
+[[bin]]
+name = "checker"
+path = "src/checker.rs"
+
 [dependencies]

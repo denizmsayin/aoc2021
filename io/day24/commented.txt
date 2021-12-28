@@ -1,0 +1,256 @@
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+
+# useless so far
+
+add x 11 # x = 11
+eql x w  # x == w is impossible since 0 <= w <= 9, this is 0
+eql x 0  # x == 0, so x = 1
+mul y 0  # 
+add y 25 # y = 25
+mul y x  # y = 25
+add y 1  # y = 26
+mul z y  # z = 0
+mul y 0  # y = 0
+add y w  # y = w
+add y 7  # y = w + 7
+mul y x  # y = w + 7 
+add z y  # z = w + 7
+inp w
+mul x 0  # x = 0
+add x z  # x = w0 + 7
+mod x 26 # x = w0 + 7
+div z 1  # z = w0 + 7
+add x 14 # x = w0 + 21
+eql x w  # x == w1 is impossibru, so x = 0
+eql x 0  # x = 1
+mul y 0  # y = 0
+add y 25 # y = 25
+mul y x  # y = 25
+add y 1  # y = 26
+mul z y  # z = (w0 + 7) * 26
+mul y 0  # y = 0
+add y w  # y = w1
+add y 8  # y = w1 + 8
+mul y x  # y = w1 + 8
+add z y  # z = (w0 + 7) * 26 + w1 + 8
+inp w    # 
+mul x 0  # x = 0
+add x z  # x = z
+mod x 26 # x = w1 + 8
+div z 1  # z = z
+add x 10 # x = w1 + 18
+eql x w  # unpossible, x = 0
+eql x 0  # x = 1
+mul y 0  # y = 0
+add y 25 # y = 25
+mul y x  # y = 25
+add y 1  # y = 26
+mul z y  # z = ((w0 + 7) * 26 + w1 + 8) * 26
+mul y 0  # y = 0
+add y w  # y = w2
+add y 16 # y = w2 + 16
+mul y x  # y = w2 + 16
+add z y  # z = ... + (w2 + 16)
+inp w    # w3
+mul x 0  # x = 0
+add x z  # x = z
+mod x 26 # x = w2 + 16
+div z 1  # z = z
+add x 14 # x = w2 + 30
+eql x w  # x = 0
+eql x 0  # x = 1
+mul y 0  # y = 0
+add y 25 # y = 25
+mul y x  # y = 25
+add y 1  # y = 26
+mul z y  # z = ... * 26
+mul y 0  # y = 0 
+add y w  # y = w3
+add y 8  # y = w3 + 8
+mul y x  # y = w3 + 8
+add z y  # z = ... + (w3 + 8)
+inp w    # w4
+mul x 0  # x = 0
+add x z  # x = z
+mod x 26 # x = w3 + 8
+div z 26 # z = prevz = ((w0 + 7) * 26 + w1 + 8) * 26 + w2 + 16
+add x -8 # x = w3
+eql x w  # 1 if w3 == w4, 0 otherwise
+eql x 0  # 0 if w3 == w4, 1 otherwise
+mul y 0  # y = 0
+add y 25 # y = 25
+mul y x  # y = 0|25
+add y 1  # y = 1|26
+mul z y  # z *= 1 or z *= 26
+mul y 0  # y = 0
+add y w  # y = w4
+add y 3  # y = w4 + 3
+mul y x  # y = 0 or w4 + 3
+add z y  # z = nochange or * 26 + (w4 + 3), nochange if w3 == w4
+inp w    # w5 
+mul x 0  # x = 0
+add x z  # x = z
+mod x 26 # could be w4 + 3 or w3 + 8
+div z 1  # 
+add x 14 # x = w4 + 17 or w3 + 22
+eql x w  # 0
+eql x 0  # x = 1
+mul y 0  # y = 0
+add y 25 # y = 25
+mul y x  # y = 25
+add y 1  # y = 26
+mul z y  # *= 26
+mul y 0  # y = 0
+add y w  # y = w5
+add y 12 # y = w5 + 12
+mul y x  # y = w5 + 12
+add z y  # z = ... + (w5 + 12)
+inp w    # w6
+mul x 0  # x = 0
+add x z  # x = z
+mod x 26 # x = w5 + 12
+div z 26 # z = prev_z
+add x -11# x = w5 + 1
+eql x w  # w6 == w5 + 1 ?
+eql x 0  # if so, x = 0, else x = 1
+mul y 0  # 
+add y 25 # y = 25
+mul y x  # y = 0 or 25
+add y 1  # y = 1 or 26
+mul z y  # 
+mul y 0  # y = 0
+add y w  # y = w6
+add y 1  # y = w6 + 1
+mul y x  # y = 0 or 1
+add z y  # z = prev_z or prev_z * 26 + (w6 + 1)
+inp w    # w7
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 10
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 8
+mul y x
+add z y
+inp w    # w8
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -6
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 8
+mul y x
+add z y
+inp w    # w9
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -9
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 14
+mul y x
+add z y
+inp w    # w10
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 12
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 4
+mul y x
+add z y
+inp w   # w11
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -5
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 14
+mul y x
+add z y
+inp w   # w12
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -4
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 15
+mul y x
+add z y
+inp w   # w13
+mul x 0 
+add x z 
+mod x 26
+div z 26
+add x -9
+eql x w 
+eql x 0 
+mul y 0 
+add y 25
+mul y x 
+add y 1 
+mul z y 
+mul y 0 
+add y w 
+add y 6 
+mul y x 
+add z y 
+# z should be 0 here
