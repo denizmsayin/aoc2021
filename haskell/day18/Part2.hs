@@ -1,5 +1,6 @@
 import Control.Monad.State
 import Data.Maybe (mapMaybe)
+import qualified Data.List as L
 
 data Part = L | R | Num Int deriving Show
 
@@ -50,8 +51,8 @@ split = go
 
 step :: SnailNum -> Either SnailNum SnailNum 
 step x = swapEither (explode x >>= split)
-  where swapEither (Left x) = Right x
-        swapEither (Right x) = Left x
+  where swapEither (Left a) = Right a
+        swapEither (Right a) = Left a
 
 reduce :: SnailNum -> SnailNum
 reduce n = let Left x = iterateM step n in x
@@ -79,9 +80,14 @@ magnitude :: SNTree -> Int
 magnitude (Value x) = x
 magnitude (Pair l r) = 3 * magnitude l + 2 * magnitude r
 
+pairs :: [a] -> [(a, a)]
+pairs l = concatMap (\(x:xs) -> map (\y -> (x, y)) xs) $ init $ L.tails l
+
 main :: IO ()
 main = do
     nums <- map parseSnailNum . lines <$> getContents
     let reduced = map reduce nums 
-        total = foldl1 addSN reduced
-    print $ magnitude $ evalState snum2tree total
+        pairSums = map (uncurry addSN) $ pairs reduced
+        magnitudes = map (magnitude . evalState snum2tree) pairSums
+    print $ maximum magnitudes 
+
