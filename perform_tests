@@ -40,7 +40,7 @@ if $BUILD; then
   for lang in $LANGS; do
     echo "Compiling $lang code..."
     cd $lang
-    for day in *; do
+    for day in day??; do
       echo "$day"
       cd $day
       if [[ $lang == rust ]]; then
@@ -55,8 +55,12 @@ if $BUILD; then
         ghc -Wall -O2 Part1.hs
         ghc -Wall -O2 Part2.hs
       else
-        gcc -Wall -O3 part1.c -o part1
-        gcc -Wall -O3 part2.c -o part2
+        if [[ -f Makefile ]]; then
+          make
+        else
+          gcc -Wall -O3 part1.c -o part1
+          gcc -Wall -O3 part2.c -o part2
+        fi
       fi
       cd ..
       echo
@@ -68,7 +72,7 @@ fi
 declare -A results
 for lang in $LANGS; do
   cd $lang
-  for day in *; do
+  for day in day??; do
     cd $day
     iod="../../io/$day"
     for c in 1 2; do

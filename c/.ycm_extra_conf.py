@@ -1,4 +1,4 @@
 def Settings(**kwargs):
     return {
-      'flags': ['-x', 'c', '-Wall', '-Wextra']
+      'flags': ['-x', 'c', '-Wall', '-Wextra', '-Ilib']
     }

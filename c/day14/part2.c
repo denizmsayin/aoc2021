@@ -3,8 +3,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define MAX_POLY_SIZE 65536
-
 /* Polymer values: B, C, F, H, K, N, O, P, S, V */
 /* Encode for sim: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 */
 
@@ -112,9 +110,13 @@ u64 maxmindiff(const pairctr_t *poly)
     return max - min;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
     int steps = 40;
+
+    if (argc >= 2)
+        steps = atoi(argv[1]);
+
     static pairctr_t c0 = {0}, c1 = {0};
     pairctr_t *cur = &c0, *next = &c1;
 

@@ -1,0 +1,3 @@
+-Ilib
+-std=gnu11
+-isystem/usr/local/lib/clang/12.0.0/include
