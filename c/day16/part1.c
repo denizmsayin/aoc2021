@@ -60,8 +60,7 @@ int parse_packet(byte **bits)
                 ver_num += parse_packet(bits);
         } else {
             int num_bits = consume(bits, 15);
-            const byte *cur = *bits;
-            const byte *end = cur + num_bits;
+            const byte *end = *bits + num_bits;
             while (*bits != end)
                 ver_num += parse_packet(bits);
         }

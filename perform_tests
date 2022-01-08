@@ -19,7 +19,7 @@ cd $(dirname "$0")
 DAYS=$(ls -1 io)
 LANGS="rust haskell c"
 BUILD=false
-TIMEOUT=5s
+TIMEOUT=15s
 
 while getopts hbl: opt; do
   case $opt in

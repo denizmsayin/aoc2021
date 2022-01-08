@@ -88,8 +88,7 @@ uint64_t parse_packet(byte **bits)
                 value = op(value, parse_packet(bits));
         } else {
             uint64_t num_bits = consume(bits, 15);
-            const byte *cur = *bits;
-            const byte *end = cur + num_bits;
+            const byte *end = *bits + num_bits;
             value = parse_packet(bits);
             while (*bits != end)
                 value = op(value, parse_packet(bits));

@@ -11,3 +11,5 @@ part1: part1.o dheap.o
 
 part2: part2.o dheap.o
 
+clean:
+	rm -f *.o
