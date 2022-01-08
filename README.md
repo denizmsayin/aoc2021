@@ -40,8 +40,8 @@
 | Day19 - Part 2 | ✅ | ✅ |   |
 | Day20 - Part 1 | ✅ | ✅ |   |
 | Day20 - Part 2 | ✅ | ✅ |   |
-| Day21 - Part 1 | ✅ |   |   |
-| Day21 - Part 2 | ✅ |   |   |
+| Day21 - Part 1 | ✅ | ✅ |   |
+| Day21 - Part 2 | ✅ | ✅ |   |
 | Day22 - Part 1 | ✅ |   |   |
 | Day22 - Part 2 | ✅ |   |   |
 | Day23 - Part 1 | ✅ |   |   |
