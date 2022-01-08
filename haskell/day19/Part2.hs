@@ -5,8 +5,6 @@ import qualified Data.List as L
 import qualified Data.IntMap as IM
 import Data.IntMap (IntMap)
 import Data.Maybe
-import qualified Data.Set as S
-import Data.Set (Set)
 
 data Point = Point {-# UNPACK #-} !Int
                    {-# UNPACK #-} !Int
@@ -100,12 +98,12 @@ parseLines lns = let pointGroups = map tail $ splitOn [""] lns
 mapRemove :: Int -> IntMap [Point] -> ([Point], IntMap [Point])
 mapRemove k m = (m IM.! k, IM.delete k m)
 
-search :: State (IntMap [Point]) (Set Point)
-search = do
+scannerPositions :: State (IntMap [Point]) [Point]
+scannerPositions = do
     first <- state (mapRemove 0)
     go first
   where 
-    go :: [Point] -> State (IntMap [Point]) (Set Point)
+    go :: [Point] -> State (IntMap [Point]) [Point] 
     go curScanner = do
         remScanners <- get
         let (matchingScannerIds, matchingScannerTfs) = unzip $
@@ -114,10 +112,18 @@ search = do
                                        Nothing -> Nothing)
                          $ IM.toList remScanners
         mapM_ (state . mapRemove) matchingScannerIds
-        subSets <- mapM (\(s, tf) -> go s >>= pure . (S.map (tfWith tf))) matchingScannerTfs
-        pure $ S.unions $ S.fromList curScanner : subSets
+        subPoints <- mapM (\(s, tf) -> go s >>= pure . (map (tfWith tf))) matchingScannerTfs
+        pure $ Point 0 0 0 : concat subPoints
+
+pairs :: [a] -> [(a, a)]
+pairs lst = concat [zip lst (tail t) | t <- init $ L.tails lst]
+
+manhattan :: Point -> Point -> Int
+manhattan (Point x1 y1 z1) (Point x2 y2 z2) = 
+    abs (x1 - x2) + abs (y1 - y2) + abs (z1 - z2)
 
 main :: IO ()
 main = do
     scanners <- parseLines . lines <$> getContents
-    print $ S.size $ evalState search scanners
+    let positions = evalState scannerPositions scanners
+    print $ maximum $ map (uncurry manhattan) $ pairs positions
