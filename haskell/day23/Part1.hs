@@ -1,20 +1,12 @@
 {-# LANGUAGE TupleSections #-}
 
-import Data.List.Split (splitOn, chunksOf)
 import qualified Data.IntMap.Strict as IM
 import Data.IntMap.Strict (IntMap)
-import qualified Data.IntSet as IS
 import qualified Data.Set as S
-import Data.Set (Set)
-import Data.IntSet (IntSet)
 import Data.Bits (shiftL, shiftR, (.&.), (.|.))
 import Data.Maybe
 import qualified Data.List as L
 import Control.Monad
-
-import Debug.Trace
-
-tracev x = trace (show x) x
 
 burrowDepth :: Int
 burrowDepth = 3 -- Deepest i in room
@@ -31,7 +23,7 @@ decCoord :: Int -> (Int, Int)
 decCoord e = (shiftR e 4, e .&. 0xF)
 
 encState :: State -> Int
-encState state@(State podPositions) =
+encState (State podPositions) =
     let encs = map (maybe 0 encAmph . (`IM.lookup` podPositions)) keys
      in L.foldl' (\a e -> 5 * a + e) 0 encs
   where 
@@ -101,9 +93,6 @@ podFinalCol B = 5
 podFinalCol C = 7
 podFinalCol D = 9
 
-podInRoom :: Int -> Bool
-podInRoom e = e >= 32
-
 podInHallway :: Int -> Bool
 podInHallway e = e < 32
 
@@ -122,14 +111,11 @@ move from to (State m) =
 range :: Int -> Int -> Int -> [Int]
 range s e step = if s < e then [s,s+step..e] else [s,s-step..e]
 
-range1 :: Int -> Int -> [Int]
-range1 s e = range s e 1
-
 rangeE :: Int -> Int -> Int -> [Int]
 rangeE s e step = if s < e then [s+1,s+1+step..e] else [s-1,s-1-step..e]
 
 targetSlotIfReachable :: State -> (Int, Int) -> Amphipod -> Maybe (Int, Int)
-targetSlotIfReachable state@(State podPositions) (i, j) a = do
+targetSlotIfReachable state@(State podPositions) (_, j) a = do
     let targetJ = podFinalCol a
         hallwayPositions = map (1,) $ rangeE j targetJ 1
     guard (pathClear state hallwayPositions)
@@ -139,7 +125,7 @@ targetSlotIfReachable state@(State podPositions) (i, j) a = do
     pure $ last clearCoords
 
 hallwayReachables :: State -> (Int, Int) -> [(Int, Int)]
-hallwayReachables state@(State podPositions) (i, j) =
+hallwayReachables state (i, j) =
     if pathClear state $ map (,j) [i-1,i-2..2]
        then let rights = map (1,) $ range (j + 1) (burrowW - 3) 2 ++ [burrowW - 2]
                 lefts = map (1,) $ range (j - 1) 2 2 ++ [1]
@@ -155,7 +141,7 @@ pathClear state = all (clear state)
 neighbors :: State -> [(Int, State)]
 neighbors state@(State podPositions) = 
     concatMap (\(e, a) ->
-        let coord@(i, j) = decCoord e
+        let coord = decCoord e
             targets | podInHallway e = maybeToList $ targetSlotIfReachable state coord a
                     | inFinalPos state coord a = []
                     | otherwise = hallwayReachables state coord
