@@ -50,9 +50,9 @@ gridkstra (Grid risks m n) from to =
                then cost
                else uncurry step $ foldl (\(d, q) neighbor ->
                             let tentativeCost = cost + risks Map.! neighbor
-                                previousCost = dists Map.! neighbor
+                                previousCost = d Map.! neighbor
                              in if tentativeCost < previousCost
-                                   then let q' = if previousCost == maxBound 
+                                   then let q' = if previousCost /= maxBound 
                                                     then Set.delete (previousCost, neighbor) q
                                                     else q
                                             q'' = Set.insert (tentativeCost, neighbor) q'
