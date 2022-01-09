@@ -19,15 +19,19 @@ cd $(dirname "$0")
 DAYS=$(ls -1 io)
 LANGS="rust haskell c"
 BUILD=false
+GENERATE=false
 TIMEOUT=15s
 
-while getopts hbl: opt; do
+while getopts hbgl: opt; do
   case $opt in
     b)
       BUILD=true
       ;;
     l)
       LANGS=$OPTARG
+      ;;
+    g)
+      GENERATE=true
       ;;
     h)
       echo "usage: $(basename $0) [-bh] [-l LANGS]"
@@ -90,8 +94,9 @@ for lang in $LANGS; do
         mstimes[$lang,$day,$c]=$ms_time
       else
         verdict='\033[31m-\033[0m'
+        ms_time=0
       fi
-      printf "%8s $day $part $verdict\n" "$lang"
+      printf "%8s $day $part $verdict (%dms)\n" "$lang" "$ms_time"
       rm $out
     done
     cd ..
@@ -99,80 +104,82 @@ for lang in $LANGS; do
   cd ..
 done
 
-# Could do all in one loop by inverting previous, but meh!
-exec 5>&1
-exec 1>correctness.md
+if $GENERATE; then
+  # Could do all in one loop by inverting previous, but meh!
+  exec 5>&1
+  exec 1>correctness.md
 
-cols="problem $LANGS"
-for header in $cols; do
-  echo -n "| ${header^}"
-done
-echo "|"
-
-for _ in $cols; do
-  echo -n "| :---: "
-done
-echo "|"
-
-for day in $DAYS; do
-  for c in 1 2; do
-    echo -n "| ${day^} - Part $c |"
-    for lang in $LANGS; do
-      if [[ ${results[$lang,$day,$c]} == 1 ]]; then
-        echo -n " ✅ |"
-      else
-        echo -n "   |"
-      fi
-    done
-    echo
+  cols="problem $LANGS"
+  for header in $cols; do
+    echo -n "| ${header^}"
   done
-done
+  echo "|"
 
-exec 1>mstimes.md
+  for _ in $cols; do
+    echo -n "| :---: "
+  done
+  echo "|"
 
-cols="problem $LANGS"
-for header in $cols; do
-  echo -n "| ${header^}"
-done
-echo "|"
-
-for _ in $cols; do
-  echo -n "| :---: "
-done
-echo "|"
-
-for day in $DAYS; do
-  for c in 1 2; do
-    echo -n "| ${day^} - Part $c |"
-    for lang in $LANGS; do
-      if [[ ${results[$lang,$day,$c]} == 1 ]]; then
-        ms_time=${mstimes[$lang,$day,$c]}
-        check=$(bc <<< "$ms_time < 10")
-        if [[ $check == 1 ]]; then
-          echo -n " <10ms |"
+  for day in $DAYS; do
+    for c in 1 2; do
+      echo -n "| ${day^} - Part $c |"
+      for lang in $LANGS; do
+        if [[ ${results[$lang,$day,$c]} == 1 ]]; then
+          echo -n " ✅ |"
         else
-          echo -n " $ms_time""ms |"
+          echo -n "   |"
         fi
-      else
-        echo -n " N/A |"
-      fi
+      done
+      echo
     done
-    echo
   done
-done
 
-exec 1>README.md
+  exec 1>mstimes.md
 
-INCLUDE_REGEX='^@include[ \t]*([a-zA-Z0-9._-]+)$'
-while read ln; do
-  if [[ $ln =~ $INCLUDE_REGEX ]]; then
-    include_file=${BASH_REMATCH[1]}
-    cat "$include_file"
-  else
-    echo $ln
-  fi
-done < readme_template.md
+  cols="problem $LANGS"
+  for header in $cols; do
+    echo -n "| ${header^}"
+  done
+  echo "|"
 
-rm -f mstimes.md correctness.md
+  for _ in $cols; do
+    echo -n "| :---: "
+  done
+  echo "|"
 
-exec 1>&5
+  for day in $DAYS; do
+    for c in 1 2; do
+      echo -n "| ${day^} - Part $c |"
+      for lang in $LANGS; do
+        if [[ ${results[$lang,$day,$c]} == 1 ]]; then
+          ms_time=${mstimes[$lang,$day,$c]}
+          check=$(bc <<< "$ms_time < 10")
+          if [[ $check == 1 ]]; then
+            echo -n " <10ms |"
+          else
+            echo -n " $ms_time""ms |"
+          fi
+        else
+          echo -n " N/A |"
+        fi
+      done
+      echo
+    done
+  done
+
+  exec 1>README.md
+
+  INCLUDE_REGEX='^@include[ \t]*([a-zA-Z0-9._-]+)$'
+  while read ln; do
+    if [[ $ln =~ $INCLUDE_REGEX ]]; then
+      include_file=${BASH_REMATCH[1]}
+      cat "$include_file"
+    else
+      echo $ln
+    fi
+  done < readme_template.md
+
+  rm -f mstimes.md correctness.md
+
+  exec 1>&5
+fi

@@ -6,7 +6,7 @@
 
 #include "dheap/dheap.h"
 
-#define N 10000
+#define N 512
 
 typedef uint64_t ugrid_t[N][N];
 typedef uint8_t bytegrid_t[N][N];
