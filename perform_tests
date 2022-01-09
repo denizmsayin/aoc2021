@@ -70,6 +70,7 @@ if $BUILD; then
 fi
 
 declare -A results
+declare -A mstimes
 for lang in $LANGS; do
   cd $lang
   for day in day??; do
@@ -79,10 +80,14 @@ for lang in $LANGS; do
       part="part$c"
       exe="$(current_target_prefix)$c"
       out=$(mktemp)
+      start_time=$(date +%s%N)
       timeout -k "$TIMEOUT" "$TIMEOUT" $exe < "$iod"/input.txt > "$out"
+      end_time=$(date +%s%N)
       if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
         verdict='\033[32m+\033[0m'
         results[$lang,$day,$c]=1
+        ms_time=$(((end_time - start_time) / 1000000))
+        mstimes[$lang,$day,$c]=$ms_time
       else
         verdict='\033[31m-\033[0m'
       fi
@@ -95,7 +100,8 @@ for lang in $LANGS; do
 done
 
 # Could do all in one loop by inverting previous, but meh!
-exec 1>README.md
+exec 5>&1
+exec 1>correctness.md
 
 cols="problem $LANGS"
 for header in $cols; do
@@ -122,4 +128,51 @@ for day in $DAYS; do
   done
 done
 
+exec 1>mstimes.md
 
+cols="problem $LANGS"
+for header in $cols; do
+  echo -n "| ${header^}"
+done
+echo "|"
+
+for _ in $cols; do
+  echo -n "| :---: "
+done
+echo "|"
+
+for day in $DAYS; do
+  for c in 1 2; do
+    echo -n "| ${day^} - Part $c |"
+    for lang in $LANGS; do
+      if [[ ${results[$lang,$day,$c]} == 1 ]]; then
+        ms_time=${mstimes[$lang,$day,$c]}
+        check=$(bc <<< "$ms_time < 10")
+        if [[ $check == 1 ]]; then
+          echo -n " <10ms |"
+        else
+          echo -n " $ms_time""ms |"
+        fi
+      else
+        echo -n " N/A |"
+      fi
+    done
+    echo
+  done
+done
+
+exec 1>README.md
+
+INCLUDE_REGEX='^@include[ \t]*([a-zA-Z0-9._-]+)$'
+while read ln; do
+  if [[ $ln =~ $INCLUDE_REGEX ]]; then
+    include_file=${BASH_REMATCH[1]}
+    cat "$include_file"
+  else
+    echo $ln
+  fi
+done < readme_template.md
+
+rm -f mstimes.md correctness.md
+
+exec 1>&5
