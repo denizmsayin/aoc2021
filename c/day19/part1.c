@@ -36,17 +36,17 @@ struct point {
 
 #define IDENT_TRANSL ((struct point) {{{ .x = 0, .y = 0, .z = 0 }}})
 
-struct point psub(struct point p1, struct point p2)
+static struct point psub(struct point p1, struct point p2)
 {
     return (struct point) {{{ .x = p1.x - p2.x, .y = p1.y - p2.y, .z = p1.z - p2.z }}};
 }
 
-struct point padd(struct point p1, struct point p2)
+static struct point padd(struct point p1, struct point p2)
 {
     return (struct point) {{{ .x = p1.x + p2.x, .y = p1.y + p2.y, .z = p1.z + p2.z }}};
 }
 
-int rotposdet(struct rot r)
+static int rotposdet(struct rot r)
 {
     int sub_ori_neg = r.comp[1].i > r.comp[2].i; // Sub-det sign
     int first_row_neg = r.comp[0].i == 1; // negated only if first row [0 1 0]
@@ -54,7 +54,7 @@ int rotposdet(struct rot r)
     return !(sub_ori_neg ^ first_row_neg ^ mul_neg);
 }
 
-void generate_rotations(void)
+static void generate_rotations(void)
 {
     // Enough recursion with Haskell!
     static int PERMS[][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
@@ -77,7 +77,7 @@ void generate_rotations(void)
     assert (k == N_ROTATIONS);
 }
 
-void print_rotation(struct rot r)
+static void print_rotation(struct rot r)
 {
     // Matrix-style:
     // [[1 0 0]
@@ -102,7 +102,7 @@ void print_rotation(struct rot r)
     }
 }
 
-struct point rotate(struct point p, struct rot r)
+static struct point rotate(struct point p, struct rot r)
 {
     struct point q;
     for (int i = 0; i < 3; i++) {
@@ -113,7 +113,7 @@ struct point rotate(struct point p, struct rot r)
     return q;
 }
 
-struct rot rot_compose(struct rot r1, struct rot r2)
+static struct rot rot_compose(struct rot r1, struct rot r2)
 {
     struct rot c;
     for (size_t i = 0; i < 3; i++) {
@@ -131,12 +131,12 @@ struct transform {
 
 #define IDENT_TF ((struct transform) { .rot = IDENT_ROT, .transl = IDENT_TRANSL })
 
-struct point transform(struct point p, struct transform t)
+static struct point transform(struct point p, struct transform t)
 {
     return padd(rotate(p, t.rot), t.transl);
 }
 
-struct transform compose(struct transform t1, struct transform t2)
+static struct transform compose(struct transform t1, struct transform t2)
 {
     return (struct transform) {
         .rot = rot_compose(t1.rot, t2.rot),
@@ -149,20 +149,40 @@ struct pointpair {
     unsigned char from, to;
 };
 
-int cmp_short(short x, short y)
+typedef long long unsigned llu;
+
+static int hcmp(short x, short y)
 {
-    if (x < y)
-        return -1;
-    else if (x == y)
-        return 0;
-    else
-        return 1;
+    return (int) x - (int) y;
 }
 
-int cmp_pair(const void *pp1, const void *pp2)
+static int ucmp(const void *p1, const void *p2)
+{
+    llu a = *(llu *) p1;
+    llu b = *(llu *) p2;
+    return (a > b) - (a < b); /* a fun trick for sure */
+}
+
+static int paircmp(const void *pp1, const void *pp2)
 {
     const struct pointpair *p1 = pp1, *p2 = pp2;
-    return cmp_short(p1->dist, p2->dist);
+    return hcmp(p1->dist, p2->dist);
+}
+
+static int pointcmp_v(struct point p1, struct point p2)
+{
+    int r = hcmp(p1.x, p2.x);
+    if (r)
+        return r;
+    r = hcmp(p1.y, p2.y);
+    if (r)
+        return r;
+    return hcmp(p1.z, p2.z);
+}
+
+static int pointcmp(const void *pp1, const void *pp2)
+{
+    return pointcmp_v(*(struct point *) pp1, *(struct point *) pp2);
 }
 
 struct scanner {
@@ -171,12 +191,12 @@ struct scanner {
     struct pointpair pairs[MAX_PAIRS_PER_SCANNER];
 };
 
-int manhattan(const struct point p1, const struct point p2)
+static int manhattan(const struct point p1, const struct point p2)
 {
     return abs(p1.x - p2.x) + abs(p1.y - p2.y) + abs(p1.z - p2.z);
 }
 
-int read_scanner(struct scanner *s)
+static int read_scanner(struct scanner *s)
 {
     int ret = scanf("%*[^\n]");
     size_t i, j, k;
@@ -202,13 +222,13 @@ int read_scanner(struct scanner *s)
     }
 
     assert ((lli) k == pairsof(s->npoints));
-    
-    qsort(s->pairs, k, sizeof(s->pairs[0]), cmp_pair);
+
+    qsort(s->pairs, k, sizeof(s->pairs[0]), paircmp);
 
     return 1;
 }
 
-void print_scanner(const struct scanner *s)
+static void print_scanner(const struct scanner *s)
 {
     size_t i, n = s->npoints;
     printf("N=%lu\n", n);
@@ -228,36 +248,19 @@ struct spair {
     size_t i, j;
 };
 
-int find_n_equals_ub(const struct pointpair *ps1, size_t n1, 
+static int find_n_equals(const struct pointpair *ps1, size_t n1, 
                   const struct pointpair *ps2, size_t n2, 
-                  size_t n_eql_target, struct spair *eqls)
+                  size_t n_eql_target)
 {
     size_t i = 0, j = 0, k = 0;
 
     while (i < n1 && j < n2) {
         if (ps1[i].dist == ps2[j].dist) {
-           eqls[k++] = (struct spair) { i++, j++ };
-        } else if (ps1[i].dist < ps2[j].dist) {
+            k++;
+            if (k == n_eql_target)
+                return 1;
             i++;
-        } else {
             j++;
-        }
-    }
-
-    return k;
-}
-
-int find_n_equals(const struct pointpair *ps1, size_t n1, 
-                  const struct pointpair *ps2, size_t n2, 
-                  size_t n_eql_target, struct spair *eqls)
-{
-    size_t i = 0, j = 0, k = 0;
-
-    while (i < n1 && j < n2) {
-        if (ps1[i].dist == ps2[j].dist) {
-           eqls[k++] = (struct spair) { i++, j++ };
-           if (k == n_eql_target)
-               return 1;
         } else if (ps1[i].dist < ps2[j].dist) {
             i++;
         } else {
@@ -271,24 +274,14 @@ int find_n_equals(const struct pointpair *ps1, size_t n1,
 #define N_MATCHES 12
 #define N_MATCHING_PAIRS 66 // pairsof(12)
 
-int scanner_matches(const struct scanner *s1, const struct scanner *s2, struct spair *eqls)
+static int scanner_matches(const struct scanner *s1, const struct scanner *s2)
 {
     return find_n_equals(s1->pairs, pairsof(s1->npoints), s2->pairs, pairsof(s2->npoints),
-                         N_MATCHING_PAIRS, eqls);
-}
-
-int scanner_points_match(const struct scanner *s1, size_t pi,
-                         const struct scanner *s2, size_t pj,
-                         struct transform tf)
-{
-    struct point s1point = s1->points[pi];
-    struct point s2point = s2->points[pj];
-    struct point s2t = transform(s2point, tf);
-    return s2t.x == s1point.x && s2t.y == s1point.y && s2t.z == s2point.z;
+                          N_MATCHING_PAIRS);
 }
 
 // Generic deduplication, similar to qsort's interface
-size_t dedup(void *arr, size_t n, size_t size, int (*cmp)(const void *, const void *))
+static size_t dedup(void *arr, size_t n, size_t size, int (*cmp)(const void *, const void *))
 {
     char *iptr = arr;
     char *jptr = iptr + size;
@@ -305,112 +298,79 @@ size_t dedup(void *arr, size_t n, size_t size, int (*cmp)(const void *, const vo
     return (iptr - (char *) arr) / size;
 }
 
-size_t qsortdedup(void *arr, size_t n, size_t size, int (*cmp)(const void *, const void *))
+static size_t sort_find_longest_eq_subseq(struct point *ps, size_t n, size_t *eq_start)
 {
-    qsort(arr, n, size, cmp);
-    return dedup(arr, n, size, cmp);
-}
+    size_t max_count = 0;
+    size_t i = 0;
 
-typedef long long unsigned llu;
+    qsort(ps, n, sizeof(ps[0]), pointcmp);
 
-int ucmp(const void *p1, const void *p2)
-{
-    llu a = *(llu *) p1;
-    llu b = *(llu *) p2;
-    return (a > b) - (a < b); /* a fun trick for sure */
-}
-
-// Fill indices given by the eqls array, sort & dedup them.
-// Useful for getting a list of the matching points.
-void fill_eqls(const struct scanner *s1, const struct scanner *s2,
-               const struct spair *eqls, size_t n_eqls,
-               size_t *inds1, size_t *n1, size_t *inds2, size_t *n2)
-{
-    for (size_t i = 0; i < n_eqls; i += 2) {
-        inds1[i] = s1->pairs[eqls[i].i].from;
-        inds1[i+1] = s1->pairs[eqls[i].i].to;
-        inds2[i] = s2->pairs[eqls[i].j].from;
-        inds2[i+1] = s2->pairs[eqls[i].j].to;
-    }
-
-    // Sort & dedup the
-    *n1 = qsortdedup(inds1, 2 * n_eqls, sizeof(inds1[0]), ucmp);
-    *n2 = qsortdedup(inds2, 2 * n_eqls, sizeof(inds2[0]), ucmp);
-}
-
-size_t count_equal_match_points(const struct point *ps1, const struct point *ps2)
-{
-    size_t c = 0;
-    for (size_t i = 0; i < N_MATCHES; i++) {
-        for (size_t j = i + 1; j < N_MATCHES; j++) {
-            struct point p1 = ps1[i];
-            struct point p2 = ps2[j];
-            if (p1.x == p2.x && p1.y == p2.y && p1.z == p2.z)
-                c++;
+    while (i < n) {
+        size_t count;
+        size_t j = i + 1;
+        while (j < n && pointcmp_v(ps[i], ps[j]) == 0)
+            j++;
+        count = j - i;
+        if (count > max_count) {
+            max_count = count;
+            *eq_start = i;
         }
-    }
-    return c;
+        i = j;
+    } 
+
+    return max_count;
 }
 
-struct transform matching_transform(const struct scanner *s1, const struct scanner *s2,
-                                    const struct spair *eqls)
+struct transform matching_transform(const struct scanner *s1, const struct scanner *s2)
 {
-    size_t s1_inds[N_MATCHES], s2_inds[N_MATCHES];
-    size_t s1_inds_n, s2_inds_n;
-    struct point s1_match_points[N_MATCHES], s2_match_points[N_MATCHES];
-
-    // We can make some assumptions, since we know that 12 points will be matching.
-    fill_eqls(s1, s2, eqls, N_MATCHING_PAIRS, s1_inds, &s1_inds_n, s2_inds, &s2_inds_n);
-
-    printf("%d\n", s1_inds_n);
-    printf("%d\n", s2_inds_n);
-
-    assert (s1_inds_n == N_MATCHES);
-    assert (s2_inds_n == N_MATCHES);
-
-    for (size_t i = 0; i < N_MATCHES; i++) {
-        s1_match_points[i] = s1->points[s1_inds[i]];
-        s2_match_points[i] = s2->points[s2_inds[i]];
-    }
+    struct point s1_sorted_points[MAX_POINTS_PER_SCANNER];
+    memcpy(s1_sorted_points, s1->points, s1->npoints * sizeof(s1->points[0]));
+    qsort(s1_sorted_points, s1->npoints, sizeof(s1->points[0]), pointcmp);
 
     for (size_t rot_i = 0; rot_i < N_ROTATIONS; rot_i++) {
         // Try all 66 combinations to find the correct transformation
         struct rot rot = ROTATIONS[rot_i];
-        struct point s2_rot_points[N_MATCHES];
-        
-        for (size_t i = 0; i < N_MATCHES; i++)
-            s2_rot_points[i] = rotate(s2_match_points[i], rot);
+        struct point s2_rot_points[MAX_POINTS_PER_SCANNER];
+        struct point transls[MAX_POINTS_PER_SCANNER * MAX_POINTS_PER_SCANNER];
+        size_t k = 0;
+        size_t eq_count, eq_start;
 
-        for (size_t i = 0; i < N_MATCHES; i++) {
-            for (size_t j = i + 1; j < N_MATCHES; j++) {
-                struct point transl = psub(s1_match_points[i], s2_rot_points[j]);
-                struct point s2_tf_points[N_MATCHES];
-                size_t neql;
-                for (size_t i = 0; i < N_MATCHES; i++)
-                    s2_tf_points[i] = padd(s2_rot_points[i], transl);
-                
-                neql = count_equal_match_points(s1_match_points, s2_tf_points);
-                if (neql == 12)
-                    return (struct transform) { .rot = rot, .transl = transl };
-            }
-        }
+        for (size_t i = 0; i < s2->npoints; i++)
+            s2_rot_points[i] = rotate(s2->points[i], rot);
+
+        // Now, list the translation vector between all cross-pairs.
+        // 12 of them should be equal if this is the correct rotation.
+        // For relatively fast equality checking, qsort & count.
+        for (size_t i = 0; i < s1->npoints; i++)
+            for (size_t j = 0; j < s2->npoints; j++)
+                transls[k++] = psub(s1_sorted_points[i], s2_rot_points[j]);
+
+        eq_count = sort_find_longest_eq_subseq(transls, k, &eq_start);
+        if (eq_count >= 12)
+            return (struct transform) { .rot = rot, .transl = transls[eq_start] };
     }
+
     assert (0);
 }
 
-uint64_t encode_point(struct point p)
+static inline uint64_t zeroext64(short x)
 {
-    return p.x | ((uint64_t) p.y << 16) | ((uint64_t) p.z << 32);
+    // Requires some casting tricks. Why?
+    // Because casting a narrower signed type to a larger unsigned
+    // type will cast to the larger signed type first, which sign-extends.
+    // e.g. short -> long unsigned goes like short -> long signed -> long unsigned.
+    // I just want to add zeros though! Therefore, tricks.
+    return (uint64_t) ((unsigned short) x);
 }
 
-struct point decode_point(uint64_t e)
+static uint64_t encode_point(struct point p)
 {
-    return (struct point) {{{ .x = e & 0xFFFF, .y = (e >> 16) & 0xFFFF, .z = e >> 24 }}};
+    return zeroext64(p.x) | (zeroext64(p.y) << 16) | (zeroext64(p.z) << 32);
 }
 
-void search(const struct scanner *scanners, size_t n_scanners,
-            char scanner_visited[], dhashtable_t *points_found,
-            size_t i, struct transform tf2first)
+static void search(const struct scanner *scanners, size_t n_scanners,
+                   char scanner_visited[], dhashtable_t *points_found,
+                   size_t i, struct transform tf2first)
 {
     size_t j;
     const struct scanner *cursc = &scanners[i];
@@ -423,18 +383,15 @@ void search(const struct scanner *scanners, size_t n_scanners,
     }
 
     for (j = 0; j < n_scanners; j++) {
-        struct spair eqls[N_MATCHING_PAIRS];
-        if (!scanner_visited[j] && scanner_matches(&scanners[i], &scanners[j], eqls)) {
-            printf("%d %d\n", i, j);
-            // Now, need to match the equals somehow...
-            struct transform tf = matching_transform(&scanners[i], &scanners[j], eqls);
+        if (!scanner_visited[j] && scanner_matches(&scanners[i], &scanners[j])) {
+            struct transform tf = matching_transform(&scanners[i], &scanners[j]);
             struct transform total_tf = compose(tf2first, tf);
             search(scanners, n_scanners, scanner_visited, points_found, j, total_tf);
         }
     }
 }
 
-int unique_points(const struct scanner *scanners, size_t n_scanners)
+static int unique_points(const struct scanner *scanners, size_t n_scanners)
 {
     char *scanner_visited = calloc(n_scanners, sizeof(scanner_visited[0]));
     dhashtable_t points_found;
@@ -449,22 +406,13 @@ int unique_points(const struct scanner *scanners, size_t n_scanners)
 
 int main(void)
 {
-    generate_rotations();
-//     
-//     for (int i = 0; i < N_ROTATIONS; i++) {
-//         for (int j = 0; j < N_ROTATIONS; j++) {
-//             print_rotation(ROTATIONS[i]);
-//             print_rotation(ROTATIONS[j]);
-//             print_rotation(rot_compose(ROTATIONS[i], ROTATIONS[j]));
-//             putchar('\n');;
-//         }
-//     }
-//     
-
     static struct scanner scanners[MAX_SCANNERS];
     size_t n = 0;
+    
+    generate_rotations();
+    
     while (read_scanner(&scanners[n])) n++;
-
+    
     printf("%d\n", unique_points(scanners, n));
 
     return 0;

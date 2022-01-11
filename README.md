@@ -38,7 +38,7 @@ Completion by language:
 | Day17 - Part 2 | ✅ | ✅ | ✅ |
 | Day18 - Part 1 | ✅ | ✅ | ✅ |
 | Day18 - Part 2 | ✅ | ✅ | ✅ |
-| Day19 - Part 1 | ✅ | ✅ |   |
+| Day19 - Part 1 | ✅ | ✅ | ✅ |
 | Day19 - Part 2 | ✅ | ✅ |   |
 | Day20 - Part 1 | ✅ | ✅ |   |
 | Day20 - Part 2 | ✅ | ✅ |   |
@@ -59,53 +59,53 @@ runtimes below 100ms for all problems.
 
 | Problem| Rust| Haskell| C|
 | :---: | :---: | :---: | :---: |
-| Day01 - Part 1 | 13ms | <10ms | <10ms |
+| Day01 - Part 1 | <10ms | <10ms | <10ms |
 | Day01 - Part 2 | <10ms | <10ms | <10ms |
 | Day02 - Part 1 | <10ms | <10ms | <10ms |
 | Day02 - Part 2 | <10ms | <10ms | <10ms |
 | Day03 - Part 1 | <10ms | <10ms | <10ms |
-| Day03 - Part 2 | 19ms | <10ms | <10ms |
-| Day04 - Part 1 | 25ms | <10ms | <10ms |
-| Day04 - Part 2 | 44ms | 14ms | <10ms |
+| Day03 - Part 2 | 12ms | <10ms | <10ms |
+| Day04 - Part 1 | 30ms | <10ms | <10ms |
+| Day04 - Part 2 | 58ms | 14ms | <10ms |
 | Day05 - Part 1 | <10ms | 62ms | <10ms |
-| Day05 - Part 2 | <10ms | 127ms | <10ms |
-| Day06 - Part 1 | <10ms | 66ms | <10ms |
+| Day05 - Part 2 | <10ms | 125ms | <10ms |
+| Day06 - Part 1 | <10ms | 63ms | <10ms |
 | Day06 - Part 2 | <10ms | <10ms | <10ms |
 | Day07 - Part 1 | <10ms | <10ms | <10ms |
-| Day07 - Part 2 | <10ms | 10ms | 10ms |
+| Day07 - Part 2 | <10ms | 10ms | <10ms |
 | Day08 - Part 1 | <10ms | <10ms | <10ms |
-| Day08 - Part 2 | 10ms | <10ms | <10ms |
+| Day08 - Part 2 | <10ms | <10ms | <10ms |
 | Day09 - Part 1 | <10ms | <10ms | <10ms |
-| Day09 - Part 2 | 11ms | 31ms | <10ms |
+| Day09 - Part 2 | <10ms | 30ms | 18ms |
 | Day10 - Part 1 | <10ms | <10ms | <10ms |
 | Day10 - Part 2 | <10ms | <10ms | <10ms |
-| Day11 - Part 1 | <10ms | 10ms | <10ms |
-| Day11 - Part 2 | <10ms | 17ms | <10ms |
-| Day12 - Part 1 | 14ms | <10ms | <10ms |
-| Day12 - Part 2 | 73ms | 90ms | <10ms |
+| Day11 - Part 1 | <10ms | <10ms | 12ms |
+| Day11 - Part 2 | <10ms | 16ms | 13ms |
+| Day12 - Part 1 | 12ms | <10ms | <10ms |
+| Day12 - Part 2 | 74ms | 88ms | 11ms |
 | Day13 - Part 1 | <10ms | <10ms | <10ms |
-| Day13 - Part 2 | <10ms | 13ms | <10ms |
-| Day14 - Part 1 | <10ms | 16ms | <10ms |
+| Day13 - Part 2 | <10ms | 12ms | <10ms |
+| Day14 - Part 1 | <10ms | 15ms | <10ms |
 | Day14 - Part 2 | <10ms | <10ms | <10ms |
 | Day15 - Part 1 | <10ms | 25ms | <10ms |
-| Day15 - Part 2 | 47ms | 1343ms | 24ms |
+| Day15 - Part 2 | 39ms | 1187ms | 36ms |
 | Day16 - Part 1 | <10ms | <10ms | <10ms |
 | Day16 - Part 2 | <10ms | <10ms | <10ms |
 | Day17 - Part 1 | <10ms | <10ms | <10ms |
-| Day17 - Part 2 | <10ms | <10ms | 10ms |
-| Day18 - Part 1 | 10ms | 10ms | <10ms |
-| Day18 - Part 2 | 78ms | 70ms | 47ms |
-| Day19 - Part 1 | 2023ms | 9055ms | N/A |
-| Day19 - Part 2 | 1962ms | 9034ms | N/A |
-| Day20 - Part 1 | <10ms | 42ms | N/A |
-| Day20 - Part 2 | 21ms | 2369ms | N/A |
+| Day17 - Part 2 | <10ms | <10ms | <10ms |
+| Day18 - Part 1 | <10ms | <10ms | <10ms |
+| Day18 - Part 2 | 54ms | 59ms | 51ms |
+| Day19 - Part 1 | 1946ms | 8787ms | 23ms |
+| Day19 - Part 2 | 1882ms | 8900ms | N/A |
+| Day20 - Part 1 | <10ms | 36ms | N/A |
+| Day20 - Part 2 | 19ms | 2227ms | N/A |
 | Day21 - Part 1 | <10ms | <10ms | N/A |
-| Day21 - Part 2 | <10ms | 206ms | N/A |
-| Day22 - Part 1 | <10ms | 890ms | N/A |
-| Day22 - Part 2 | 16ms | 48ms | N/A |
-| Day23 - Part 1 | 90ms | 2148ms | N/A |
-| Day23 - Part 2 | 111ms | 993ms | N/A |
-| Day24 - Part 1 | <10ms | 12ms | N/A |
-| Day24 - Part 2 | <10ms | 12ms | N/A |
-| Day25 - Part 1 | 75ms | 3770ms | N/A |
+| Day21 - Part 2 | <10ms | 179ms | N/A |
+| Day22 - Part 1 | <10ms | 800ms | N/A |
+| Day22 - Part 2 | 23ms | 31ms | N/A |
+| Day23 - Part 1 | 93ms | 1956ms | N/A |
+| Day23 - Part 2 | 134ms | 899ms | N/A |
+| Day24 - Part 1 | <10ms | <10ms | N/A |
+| Day24 - Part 2 | <10ms | 11ms | N/A |
+| Day25 - Part 1 | 73ms | 3407ms | N/A |
 | Day25 - Part 2 | <10ms | <10ms | N/A |

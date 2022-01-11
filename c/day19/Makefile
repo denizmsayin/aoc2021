@@ -3,7 +3,7 @@ VPATH=../lib/dhashtable
 
 INCLUDE_FLAGS=-I$(LIBDIR)
 
-CFLAGS=-Wall -O0 -g $(INCLUDE_FLAGS)
+CFLAGS=-Wall -O3 $(INCLUDE_FLAGS)
 
 all: part1 part2
 
