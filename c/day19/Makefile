@@ -1,4 +1,15 @@
-CFLAGS=-Wall -O3
+LIBDIR=../lib
+VPATH=../lib/dhashtable
+
+INCLUDE_FLAGS=-I$(LIBDIR)
+
+CFLAGS=-Wall -O0 -g $(INCLUDE_FLAGS)
 
 all: part1 part2
 
+part1: part1.o dhashtable.o
+
+part2: part2.o dhashtable.o
+
+clean:
+	rm -f *.o
