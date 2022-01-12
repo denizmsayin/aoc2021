@@ -7,8 +7,9 @@
 #include "dheap/dheap.h"
 #include "dhashtable/dhashtable.h"
 
-#define HALLWAY_LEN 11
-#define ROOM_HEIGHT 4
+#define ROOM_HEIGHT     4
+#define HALLWAY_LEN     11
+#define AMPHS_PER_TYPE  ROOM_HEIGHT
 #define BURROW_HEIGHT   (ROOM_HEIGHT + 1)
 #define BURROW_WIDTH    HALLWAY_LEN
 
@@ -207,6 +208,51 @@ static int amphipods_organized(const burrow_t burrow)
 
 static inline int is_room_j(int j) { return j == 2 || j == 4 || j == 6 || j == 8; }
 
+static void find_amph_positions(const burrow_t burrow, int positions[4][AMPHS_PER_TYPE][2])
+{
+    int inds[4] = {0};
+    for (int i = 0; i < BURROW_HEIGHT; i++) {
+        for (int j = 0; j < BURROW_WIDTH; j++) {
+            if (is_amph(burrow[i][j])) {
+                int a = burrow[i][j] - 'A';
+                positions[a][inds[a]][0] = i;
+                positions[a][inds[a]][1] = j;
+                inds[a]++;
+            }
+        }
+    }
+}
+
+// Saved around ~10k states on part2 (around ~12.5%), but actually does
+// not even pay for itself...
+static u64 no_collision_cost(int positions[4][AMPHS_PER_TYPE][2])
+{
+    static const int pushdown_cost = (ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2;
+	// Try every permutation, assign minimum distance
+    u64 total_cost = 0;
+    for (int a = 0; a < 4; a++) {
+        int tj = target_room_j(a + 'A');
+        u64 cost = pushdown_cost;
+        for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
+            if (positions[a][ai][1] == tj) { // In final room, reduce cost
+                cost -= positions[a][ai][0];
+            } else { // Move to top of final room, no collision
+                cost += abs(positions[a][ai][0]);
+                cost += abs(positions[a][ai][1] - tj);
+            }
+        }
+        total_cost += move_cost(a + 'A') * cost;
+    }
+    return total_cost;
+}
+
+static u64 heuristic(const burrow_t burrow)
+{
+    int positions[4][AMPHS_PER_TYPE][2];
+    find_amph_positions(burrow, positions);
+    return no_collision_cost(positions);
+} 
+
 static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
                                    int si, int sj, int ti, int tj, int current_cost)
 {
@@ -217,7 +263,7 @@ static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t 
     if (tentative_cost < p->value) {
         // Less than old distance
         p->value = tentative_cost;
-        dheap_add(heap, neigh_enc, tentative_cost);
+        dheap_add(heap, neigh_enc, tentative_cost + heuristic(burrow));
     }
     move_nocost(burrow, ti, tj, si, sj); // Undo the move
 }
@@ -248,18 +294,20 @@ int main(void)
     dhashtable_init(&costs);
 
     read_burrow(burrow);
-
+    
     enc = encode_burrow(burrow);
     dhashtable_insert(&costs, enc, 0);
-    dheap_add(&heap, enc, 0);
+    dheap_add(&heap, enc, heuristic(burrow));
 
     // Time to dijkstra up!
     while (!dheap_empty(&heap)) {
-        u64 current_cost = dheap_min(&heap);
+        u64 current_f_cost = dheap_min(&heap);
         u64 current_enc = dheap_min_key(&heap);
+        u64 current_cost;
         struct dhash_table_pair *p;
         dheap_pop_min(&heap);
         decode_burrow(current_enc, burrow);
+        current_cost = current_f_cost - heuristic(burrow);
 
         // TODO: Final state check
         if (amphipods_organized(burrow)) {
@@ -305,4 +353,45 @@ int main(void)
     fprintf(stderr, "States discovered: %lu\n", costs.num_entries);
     dhashtable_destroy(&costs);
     return 0;
+}
+
+// A hard to compute and kind of pointless heuristic, bad idea! Assumes
+// the amphipods can go through walls, which is not realistic...
+// Useful for part1 because it's actually close to the no-collision cost.
+// It breaks down hard in part2, and only saves like ~250 states out of 85k,
+// and triples total  time due to its computation cost. Oof!
+u64 noclip_cost(int positions[4][AMPHS_PER_TYPE][2])
+{
+#if (AMPHS_PER_TYPE == 4)
+    static const int permutations[][4] = {
+		{0,1,2,3}, {1,0,2,3}, {2,1,0,3}, {1,2,0,3}, {2,0,1,3}, {0,2,1,3},
+		{3,2,1,0}, {2,3,1,0}, {2,1,3,0}, {3,1,2,0}, {1,3,2,0}, {1,2,3,0},
+		{3,0,1,2}, {0,3,1,2}, {0,1,3,2}, {3,1,0,2}, {1,3,0,2}, {1,0,3,2},
+		{3,0,2,1}, {0,3,2,1}, {0,2,3,1}, {3,2,0,1}, {2,3,0,1}, {2,0,3,1}
+	};
+#elif (AMPHS_PER_TYPE == 2)
+    static const int permutations[][2] = { {0,1}, {1,0} };
+#else
+#error Unsupported AMPHS_PER_TYPE count.
+#endif
+	static const int n_perms = sizeof(permutations) / sizeof(permutations[0]);
+	// Try every permutation, assign minimum distance
+    u64 total_cost = 0;
+    for (int a = 0; a < 4; a++) {
+        int tj = target_room_j(a + 'A');
+        u64 min_cost = U64_MAX;
+		for (int pi = 0; pi < n_perms; pi++) {
+            u64 cost = 0;
+            for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
+                int ti = permutations[pi][ai] + 1;
+                cost += abs(positions[a][ai][0] - ti);
+                cost += abs(positions[a][ai][1] - tj);
+            }
+            if (cost < min_cost)
+                min_cost = cost;
+        }
+        assert (min_cost != U64_MAX);
+        total_cost += move_cost(a + 'A') * min_cost;
+    }
+    return total_cost;
 }

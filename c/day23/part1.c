@@ -215,45 +215,25 @@ static void find_amph_positions(const burrow_t burrow, int positions[4][AMPHS_PE
             }
         }
     }
-//     for (int a = 0; a < 4; a++)
-//         for (int ai = 0; ai < AMPHS_PER_TYPE; ai++)
-//             printf("%d %d\n", positions[a][ai][0], positions[a][ai][1]);
-    for (int i = 0; i < 4; i++)
-        assert (inds[i] == ROOM_HEIGHT);
 }
 
-static u64 noclip_cost(int positions[4][AMPHS_PER_TYPE][2])
+static u64 no_collision_cost(int positions[4][AMPHS_PER_TYPE][2])
 {
-#if (AMPHS_PER_TYPE == 4)
-    static const int permutations[][4] = {
-		{0,1,2,3}, {1,0,2,3}, {2,1,0,3}, {1,2,0,3}, {2,0,1,3}, {0,2,1,3},
-		{3,2,1,0}, {2,3,1,0}, {2,1,3,0}, {3,1,2,0}, {1,3,2,0}, {1,2,3,0},
-		{3,0,1,2}, {0,3,1,2}, {0,1,3,2}, {3,1,0,2}, {1,3,0,2}, {1,0,3,2},
-		{3,0,2,1}, {0,3,2,1}, {0,2,3,1}, {3,2,0,1}, {2,3,0,1}, {2,0,3,1}
-	};
-#elif (AMPHS_PER_TYPE == 2)
-    static const int permutations[][2] = { {0,1}, {1,0} };
-#else
-#error Unsupported AMPHS_PER_TYPE count.
-#endif
-	static const int n_perms = sizeof(permutations) / sizeof(permutations[0]);
+    static const int pushdown_cost = (ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2;
 	// Try every permutation, assign minimum distance
     u64 total_cost = 0;
     for (int a = 0; a < 4; a++) {
         int tj = target_room_j(a + 'A');
-        u64 min_cost = U64_MAX;
-		for (int pi = 0; pi < n_perms; pi++) {
-            u64 cost = 0;
-            for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
-                int ti = permutations[pi][ai] + 1;
-                cost += abs(positions[a][ai][0] - ti);
+        u64 cost = pushdown_cost;
+        for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
+            if (positions[a][ai][1] == tj) { // In final room, reduce cost
+                cost -= positions[a][ai][0];
+            } else { // Move to top of final room, no collision
+                cost += abs(positions[a][ai][0]);
                 cost += abs(positions[a][ai][1] - tj);
             }
-            if (cost < min_cost)
-                min_cost = cost;
         }
-        assert (min_cost != U64_MAX);
-        total_cost += move_cost(a + 'A') * min_cost;
+        total_cost += move_cost(a + 'A') * cost;
     }
     return total_cost;
 }
@@ -262,7 +242,7 @@ static u64 heuristic(const burrow_t burrow)
 {
     int positions[4][AMPHS_PER_TYPE][2];
     find_amph_positions(burrow, positions);
-    return noclip_cost(positions);
+    return no_collision_cost(positions);
 } 
 
 static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
@@ -365,4 +345,45 @@ int main(void)
     fprintf(stderr, "States discovered: %lu\n", costs.num_entries);
     dhashtable_destroy(&costs);
     return 0;
+}
+
+// A hard to compute and kind of pointless heuristic, bad idea! Assumes
+// the amphipods can go through walls, which is not realistic...
+// Useful for part1 because it's actually close to the no-collision cost.
+// It breaks down hard in part2, and only saves like ~250 states out of 85k,
+// and triples total  time due to its computation cost. Oof!
+u64 noclip_cost(int positions[4][AMPHS_PER_TYPE][2])
+{
+#if (AMPHS_PER_TYPE == 4)
+    static const int permutations[][4] = {
+		{0,1,2,3}, {1,0,2,3}, {2,1,0,3}, {1,2,0,3}, {2,0,1,3}, {0,2,1,3},
+		{3,2,1,0}, {2,3,1,0}, {2,1,3,0}, {3,1,2,0}, {1,3,2,0}, {1,2,3,0},
+		{3,0,1,2}, {0,3,1,2}, {0,1,3,2}, {3,1,0,2}, {1,3,0,2}, {1,0,3,2},
+		{3,0,2,1}, {0,3,2,1}, {0,2,3,1}, {3,2,0,1}, {2,3,0,1}, {2,0,3,1}
+	};
+#elif (AMPHS_PER_TYPE == 2)
+    static const int permutations[][2] = { {0,1}, {1,0} };
+#else
+#error Unsupported AMPHS_PER_TYPE count.
+#endif
+	static const int n_perms = sizeof(permutations) / sizeof(permutations[0]);
+	// Try every permutation, assign minimum distance
+    u64 total_cost = 0;
+    for (int a = 0; a < 4; a++) {
+        int tj = target_room_j(a + 'A');
+        u64 min_cost = U64_MAX;
+		for (int pi = 0; pi < n_perms; pi++) {
+            u64 cost = 0;
+            for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
+                int ti = permutations[pi][ai] + 1;
+                cost += abs(positions[a][ai][0] - ti);
+                cost += abs(positions[a][ai][1] - tj);
+            }
+            if (cost < min_cost)
+                min_cost = cost;
+        }
+        assert (min_cost != U64_MAX);
+        total_cost += move_cost(a + 'A') * min_cost;
+    }
+    return total_cost;
 }
