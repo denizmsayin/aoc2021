@@ -56,7 +56,6 @@ int step(grid_t grid, int n, int m, struct pos rpos[], int rc, struct pos dpos[]
     size_t av_size = max(dc, rc) * sizeof(av[0]);
     int chg = 0, av_i;
 
-
     memset(av, 0, av_size);
     av_i = 0;
     for (int k = 0; k < rc; k++) {
