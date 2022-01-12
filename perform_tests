@@ -108,7 +108,7 @@ for lang in $LANGS; do
       timeout -k "$TIMEOUT" "$TIMEOUT" $exe < "$iod"/input.txt > "$out"
       if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
         rm $out
-        verdict='\033[32m+\033[0m'
+        verdict='\033[32m+\033[0m' # green colored +
         results[$lang,$day,$c]=1
         
         # start measuring timing
@@ -126,7 +126,8 @@ for lang in $LANGS; do
         mstimes[$lang,$day,$c]=$avg_time
         printf "%8s $day $part $verdict [%02d]:(%dms)\n" "$lang" "$times_run" "$avg_time"
       else
-        printf "%8s $day $part %s" "$lang" '\033[31m-\033[0m' # red colored -
+        verdict='\033[31m-\033[0m' # red colored -
+        printf "%8s $day $part $verdict\n" "$lang" 
       fi
     done
     cd ..
