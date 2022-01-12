@@ -185,7 +185,16 @@ struct dhash_table_pair *dhashtable_lookup(const struct dhash_table *table, uint
     struct dhash_table_entry *m = dhashtable_lookup_e(table, key);
     return m ? &m->pair : NULL; // return the entry without the extra table metadata
 }
-    
+
+struct dhash_table_pair *dhashtable_lookup_or_insert(struct dhash_table *table, 
+                                                     uint64_t key, uint64_t value)
+{
+    struct dhash_table_pair *p = dhashtable_lookup(table, key);
+    if (p)
+        return p;
+    return dhashtable_insert(table, key, value);
+}
+
 static const struct dhash_table_pair NULL_PAIR = {0, 0};
 
 struct dhash_table_pair dhashtable_remove(struct dhash_table *table, uint64_t key)

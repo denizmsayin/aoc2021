@@ -38,4 +38,8 @@ struct dhash_table_pair *dhashtable_next(const struct dhash_table *table,
 void dhashtable_print(const struct dhash_table *table);
 void dhashtable_full_print(const struct dhash_table *table);
 
+// A nice alternative for dijkstra!
+struct dhash_table_pair *dhashtable_lookup_or_insert(struct dhash_table *table, 
+                                                     uint64_t key, uint64_t value);
+
 #endif
