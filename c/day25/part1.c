@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
-#define N 4096
+#define N 256
+
+struct pos {
+    short i, j;
+};
 
 typedef char grid_t[N][N];
 
@@ -10,6 +15,8 @@ static inline int incrmod(int i, int m)
     int incr = i + 1;
     return incr == m ? 0 : incr;
 }
+
+static inline int max(int a, int b) { return a > b ? a : b; }
 
 void read_grid(grid_t grid, int *n, int *m)
 {
@@ -22,47 +29,81 @@ void read_grid(grid_t grid, int *n, int *m)
     *m = strlen(grid[0]);
 }
 
-int step(grid_t grid, int n, int m)
+// If we store positions of > and v in an auxiliary data
+// structure, it will be quite a bit faster than scanning
+// through all the cells. That should give me the edge I need!
+// EDIT: Brought down from ~50ms to ~15ms. Win!
+void scan_positions(const grid_t grid, int n, int m, 
+                    struct pos rpos[], int *rc,
+                    struct pos dpos[], int *dc)
 {
-    int changed = 0;
-
-    // Can actually move while checking, but need a special
-    // case for the first character in a row/column. It might
-    // have moved by the time we check it for the last character.
-    // So, check that one first.
+    int k0 = 0, k1 = 0;
     for (int i = 0; i < n; i++) {
-        int j, first_available = grid[i][0] == '.';
-        for (j = 0; j < m - 1; j++) {
-            int nj = j + 1;
-            if (grid[i][j] == '>' && grid[i][nj] == '.') {
-                grid[i][j] = '.';
-                grid[i][nj] = '>';
-                j++;
-                changed = 1;
-            }
-        }
-        if (j != m && first_available && grid[i][m-1] == '>') {
-            grid[i][m-1] = '.';
-            grid[i][0] = '>';
+        for (int j = 0; j < m; j++) {
+            if (grid[i][j] == '>')
+                rpos[k0++] = (struct pos) { .i = i, .j = j };
+            else if (grid[i][j] == 'v')
+                dpos[k1++] = (struct pos) { .i = i, .j = j };
         }
     }
-    for (int j = 0; j < m; j++) {
-        int i, first_available = grid[0][j] == '.';
-        for (i = 0; i < n - 1; i++) {
-            int ni = i + 1;
-            if (grid[i][j] == 'v' && grid[ni][j] == '.') {
-                grid[i][j] = '.';
-                grid[ni][j] = 'v';
-                i++;
-                changed = 1;
-            }
-        }
-        if (i != n && first_available && grid[n-1][j] == 'v') {
-            grid[n-1][j] = '.';
-            grid[0][j] = 'v';
-        }
+    *rc = k0;
+    *dc = k1;
+}
+
+int step(grid_t grid, int n, int m, struct pos rpos[], int rc, struct pos dpos[], int dc,
+         int av[])
+{
+    size_t av_size = max(dc, rc) * sizeof(av[0]);
+    int chg = 0, av_i;
+
+
+    memset(av, 0, av_size);
+    av_i = 0;
+    for (int k = 0; k < rc; k++) {
+        int i = rpos[k].i;
+        int j = rpos[k].j;
+        int nj = incrmod(j, m);
+        if (grid[i][nj] == '.')
+            av[av_i++] = k;
     }
-    return changed;
+
+    if (av_i > 0)
+        chg = 1;
+
+    for (int k = 0; k < av_i; k++) {
+        int t = av[k];
+        int i = rpos[t].i;
+        int j = rpos[t].j;
+        int nj = incrmod(j, m);
+        grid[i][j] = '.';
+        grid[i][nj] = '>';
+        rpos[t].j = nj;
+    }
+
+    memset(av, 0, av_size);
+    av_i = 0;
+    for (int k = 0; k < dc; k++) {
+        int i = dpos[k].i;
+        int j = dpos[k].j;
+        int ni = incrmod(i, n);
+        if (grid[ni][j] == '.')
+            av[av_i++] = k;
+    }
+
+    if (av_i > 0)
+        chg = 1;
+
+    for (int k = 0; k < av_i; k++) {
+        int t = av[k];
+        int i = dpos[t].i;
+        int j = dpos[t].j;
+        int ni = incrmod(i, n);
+        grid[i][j] = '.';
+        grid[ni][j] = 'v';
+        dpos[t].i = ni;
+    }
+
+    return chg;
 }
 
 void print_grid(grid_t grid, int n)
@@ -74,11 +115,14 @@ void print_grid(grid_t grid, int n)
 int main(void)
 {
     static grid_t grid;
-    int n, m;
+    static struct pos rpos[N*N], dpos[N*N];
+    static int av[N*N];
+    int n, m, rc, dc;
     int c = 1;
 
     read_grid(grid, &n, &m);
-    while (step(grid, n, m))
+    scan_positions(grid, n, m, rpos, &rc, dpos, &dc);
+    while (step(grid, n, m, rpos, rc, dpos, dc, av))
         c++;
 
     printf("%d\n", c);
