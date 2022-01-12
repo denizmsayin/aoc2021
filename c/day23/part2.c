@@ -253,8 +253,9 @@ static u64 heuristic(const burrow_t burrow)
     return no_collision_cost(positions);
 } 
 
-static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
-                                   int si, int sj, int ti, int tj, int current_cost)
+static void add_neighbor_to_search(dhashtable_t *costs, dhashtable_t *depths, 
+                                   dheap_t *heap, burrow_t burrow, 
+                                   int si, int sj, int ti, int tj, int current_cost, int cd)
 {
     u64 move_cost = move(burrow, si, sj, ti, tj);
     u64 neigh_enc = encode_burrow(burrow); // Zobrist for speed?
@@ -264,19 +265,21 @@ static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t 
         // Less than old distance
         p->value = tentative_cost;
         dheap_add(heap, neigh_enc, tentative_cost + heuristic(burrow));
+        dhashtable_insert(depths, neigh_enc, cd + 1);
     }
     move_nocost(burrow, ti, tj, si, sj); // Undo the move
 }
 
 
-static void hallway_traverse(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
-                             int si, int sj, int je, int jincr, int current_cost)
+static void hallway_traverse(dhashtable_t *costs, dhashtable_t *depths,
+                             dheap_t *heap, burrow_t burrow, 
+                             int si, int sj, int je, int jincr, int current_cost, int cd)
 {
     for (int jj = sj + jincr; jj != je; jj += jincr) {
         if (!is_room_j(jj)) { // Skip room columns
             if (burrow[0][jj] == '.') { // Add if clear
-                add_neighbor_to_search(costs, heap, burrow, si, sj, 0, jj,
-                                       current_cost);
+                add_neighbor_to_search(costs, depths, heap, burrow, si, sj, 0, jj,
+                                       current_cost, cd);
             } else {
                 break; // Stop otherwise, hallway is blocked
             }
@@ -288,15 +291,18 @@ int main(void)
 {
     static dheap_t heap; // the heap is huge!
     dhashtable_t costs;
+    dhashtable_t depths;
     burrow_t burrow;
     u64 enc;
 
     dhashtable_init(&costs);
+    dhashtable_init(&depths);
 
     read_burrow(burrow);
     
     enc = encode_burrow(burrow);
     dhashtable_insert(&costs, enc, 0);
+    dhashtable_insert(&depths, enc, 0);
     dheap_add(&heap, enc, heuristic(burrow));
 
     // Time to dijkstra up!
@@ -304,14 +310,17 @@ int main(void)
         u64 current_f_cost = dheap_min(&heap);
         u64 current_enc = dheap_min_key(&heap);
         u64 current_cost;
+        int current_depth; 
         struct dhash_table_pair *p;
         dheap_pop_min(&heap);
         decode_burrow(current_enc, burrow);
         current_cost = current_f_cost - heuristic(burrow);
+        current_depth = dhashtable_lookup(&depths, current_enc)->value;
 
         // TODO: Final state check
         if (amphipods_organized(burrow)) {
             printf("%lu\n", current_cost);
+            fprintf(stderr, "Found solution at depth: %d\n", current_depth);
             break;;
         }
 
@@ -330,8 +339,8 @@ int main(void)
                 if ((target_i = room_available_spot(burrow, target_j)) != -1
                     && row_clear(burrow, j, target_j, 0))
                 {
-                    add_neighbor_to_search(&costs, &heap, burrow, 0, j,
-                                           target_i, target_j, current_cost);
+                    add_neighbor_to_search(&costs, &depths, &heap, burrow, 0, j,
+                                           target_i, target_j, current_cost, current_depth);
                 }
             }
         }
@@ -343,8 +352,8 @@ int main(void)
                     && room_to_hallway_clear(burrow, i, j)) 
                 {
                     // Find clear positions in the hallway, both directions
-                    hallway_traverse(&costs, &heap, burrow, i, j, -1, -1, current_cost);
-                    hallway_traverse(&costs, &heap, burrow, i, j, BURROW_WIDTH, 1, current_cost);
+                    hallway_traverse(&costs, &depths, &heap, burrow, i, j, -1, -1, current_cost, current_depth);
+                    hallway_traverse(&costs, &depths, &heap, burrow, i, j, BURROW_WIDTH, 1, current_cost, current_depth);
                 }
             }
         }
