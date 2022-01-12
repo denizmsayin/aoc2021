@@ -129,11 +129,6 @@ struct transform {
 
 #define IDENT_TF ((struct transform) { .rot = IDENT_ROT, .transl = IDENT_TRANSL })
 
-static struct point transform(struct point p, struct transform t)
-{
-    return padd(rotate(p, t.rot), t.transl);
-}
-
 static struct transform compose(struct transform t1, struct transform t2)
 {
     return (struct transform) {
@@ -271,21 +266,6 @@ static int scanner_matches(const struct scanner *s1, const struct scanner *s2)
                           N_MATCHING_PAIRS);
 }
 
-static size_t dedup(struct point *pts, size_t n)
-{
-    size_t i = 0, j = 1;
-    while (j < n) {
-        if (pointcmp(&pts[i], &pts[j])) {
-            i++;
-            pts[i] = pts[j];
-        } else {
-            j++;
-        }
-    }
-    i++;
-    return i;
-}
-
 static size_t sort_find_longest_eq_subseq(struct point *ps, size_t n, size_t *eq_start)
 {
     size_t max_count = 0;
@@ -341,40 +321,46 @@ static struct transform matching_transform(const struct scanner *s1, const struc
     assert (0);
 }
 
-static size_t search(const struct scanner *scanners, size_t n_scanners,
-                     char scanner_visited[], struct point *points_found,
+static size_t search(const struct scanner scanners[], size_t n_scanners,
+                     char scanner_visited[], struct point scanners_found[],
                      size_t i, struct transform tf2first)
 {
-    size_t j, n_points_found;
-    const struct scanner *cursc = &scanners[i];
+    size_t j, k = 0;
 
     // Mark visited and insert points
     scanner_visited[i] = 1;
-    for (j = 0; j < cursc->npoints; j++)
-        points_found[j] = transform(cursc->points[j], tf2first);
-    n_points_found = cursc->npoints;
+    scanners_found[k++] = tf2first.transl;
 
     for (j = 0; j < n_scanners; j++) {
         if (!scanner_visited[j] && scanner_matches(&scanners[i], &scanners[j])) {
             struct transform tf = matching_transform(&scanners[i], &scanners[j]);
             struct transform total_tf = compose(tf2first, tf);
-            n_points_found += search(scanners, n_scanners, scanner_visited, 
-                                     points_found + n_points_found, j, total_tf);
+            // The transform's translation component is the position of the scanner
+            // w.r.t. scanner 0. Drawing a diagram on paper shows this... Neat!
+            k += search(scanners, n_scanners, scanner_visited, 
+                        scanners_found + k, j, total_tf);
         }
     }
 
-    return n_points_found;
+    return k;
 }
 
-static size_t unique_points(const struct scanner *scanners, size_t n_scanners)
+static llu furthest_scanners_dist(const struct scanner *scanners, size_t n_scanners)
 {
     char scanner_visited[MAX_SCANNERS] = {0};
-    struct point points_found[MAX_SCANNERS * MAX_POINTS_PER_SCANNER];
-    size_t n_points_found;
-    n_points_found = search(scanners, n_scanners, scanner_visited, points_found, 0, IDENT_TF);
-    assert (n_points_found < MAX_SCANNERS * MAX_POINTS_PER_SCANNER);
-    qsort(points_found, n_points_found, sizeof(points_found[0]), pointcmp);
-    return dedup(points_found, n_points_found);
+    struct point scanners_found[MAX_SCANNERS];
+    llu max_dist = 0;
+    search(scanners, n_scanners, scanner_visited, scanners_found, 0, IDENT_TF);
+
+    for (size_t i = 0; i < n_scanners; i++) {
+        for (size_t j = i + 1; j < n_scanners; j++) {
+            llu dist = manhattan(scanners_found[i], scanners_found[j]);
+            if (dist > max_dist)
+                max_dist = dist;
+        }
+    }
+
+    return max_dist;
 }
 
 int main(void)
@@ -386,7 +372,7 @@ int main(void)
     
     while (read_scanner(&scanners[n])) n++;
     
-    printf("%lu\n", unique_points(scanners, n));
+    printf("%llu\n", furthest_scanners_dist(scanners, n));
 
     return 0;
 }

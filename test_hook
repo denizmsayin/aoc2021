@@ -2,7 +2,7 @@
 
 # will be ran from .git/hooks in pre-commit
 echo "Performing tests..."
-./perform_tests -b -g &> /dev/null
+./perform_tests -b -g -t 500 &> /dev/null
 echo "Readme updated."
 
 git add README.md

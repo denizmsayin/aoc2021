@@ -13,6 +13,23 @@ current_target_prefix() {
   fi
 }
 
+usage() {
+cat <<EOF
+This nifty little scripts automatically builds, tests and times the existing codebase,
+and outputs the results in markdown table format into the README if specified.
+
+usage: $(basename $0) [-bhg] [-l LANG] [-t TEST_THRESH]
+  -h:             Show this help message.
+  -b:             Attempt to build the tested codes.
+  -g:             Regenerate README with results.
+  -l LANG:        Only test for language LANG. (rust, haskell, c)
+  -t TEST_THRESH: Stop testing a program after exceeding TEST_THRESH milliseconds.
+                  A program is tested multiple times until the threshold is exceeded
+                  for slightly more accurate timing estimation. 1 by default to quickly
+                  run each program just once.
+EOF
+}
+
 # No links please (;
 cd $(dirname "$0")
 
@@ -21,8 +38,9 @@ LANGS="rust haskell c"
 BUILD=false
 GENERATE=false
 TIMEOUT=15s
+TIME_THRESH=1
 
-while getopts hbgl: opt; do
+while getopts hbgl:t: opt; do
   case $opt in
     b)
       BUILD=true
@@ -33,8 +51,11 @@ while getopts hbgl: opt; do
     g)
       GENERATE=true
       ;;
+    t)
+      TIME_THRESH=$OPTARG
+      ;;
     h)
-      echo "usage: $(basename $0) [-bh] [-l LANGS]"
+      usage
       exit
       ;;
   esac
@@ -84,20 +105,29 @@ for lang in $LANGS; do
       part="part$c"
       exe="$(current_target_prefix)$c"
       out=$(mktemp)
-      start_time=$(date +%s%N)
       timeout -k "$TIMEOUT" "$TIMEOUT" $exe < "$iod"/input.txt > "$out"
-      end_time=$(date +%s%N)
       if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
+        rm $out
         verdict='\033[32m+\033[0m'
         results[$lang,$day,$c]=1
-        ms_time=$(((end_time - start_time) / 1000000))
-        mstimes[$lang,$day,$c]=$ms_time
+        
+        # start measuring timing
+        total_time=0
+        times_run=0
+        while [ $(echo "$total_time < $TIME_THRESH" | bc) -eq 1 ]; do
+          start_time=$(date +%s%N)
+          $exe < "$iod"/input.txt &> /dev/null
+          end_time=$(date +%s%N)
+          ms_time=$(((end_time - start_time) / 1000000))
+          total_time=$((total_time + ms_time))
+          times_run=$((times_run + 1))
+        done
+        avg_time=$((total_time / times_run))
+        mstimes[$lang,$day,$c]=$avg_time
+        printf "%8s $day $part $verdict [%02d]:(%dms)\n" "$lang" "$times_run" "$avg_time"
       else
-        verdict='\033[31m-\033[0m'
-        ms_time=0
+        printf "%8s $day $part %s" "$lang" '\033[31m-\033[0m' # red colored -
       fi
-      printf "%8s $day $part $verdict (%dms)\n" "$lang" "$ms_time"
-      rm $out
     done
     cd ..
   done
