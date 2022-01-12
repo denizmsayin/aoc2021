@@ -105,15 +105,17 @@ for lang in $LANGS; do
       part="part$c"
       exe="$(current_target_prefix)$c"
       out=$(mktemp)
+      start_time=$(date +%s%N)
       timeout -k "$TIMEOUT" "$TIMEOUT" $exe < "$iod"/input.txt > "$out" 2> /dev/null
+      end_time=$(date +%s%N)
       if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
         rm $out
         verdict='\033[32m+\033[0m' # green colored +
         results[$lang,$day,$c]=1
         
         # start measuring timing
-        total_time=0
-        times_run=0
+        total_time=$(((end_time - start_time) / 1000000))
+        times_run=1
         while [ $(echo "$total_time < $TIME_THRESH" | bc) -eq 1 ]; do
           start_time=$(date +%s%N)
           $exe < "$iod"/input.txt &> /dev/null
