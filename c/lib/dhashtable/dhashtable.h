@@ -17,6 +17,7 @@ typedef struct dhash_table {
     struct dhash_table_entry *entries;
     size_t num_entries;
     unsigned bits;
+    unsigned num_collisions;
 } dhashtable_t;
 
 void dhashtable_init(struct dhash_table *table);

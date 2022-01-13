@@ -49,6 +49,7 @@ void dhashtable_init(struct dhash_table *table)
     table->bits = HASH_TABLE_MIN_BITS;
     table->num_entries = 0;
     table->entries = calloc(HASH_TABLE_MIN_SIZE, sizeof(*table->entries));
+    table->num_collisions = 0;
 }
 
 void dhashtable_destroy(struct dhash_table *table)
@@ -74,7 +75,7 @@ static struct dhash_table_pair *insert_pair_hashed(
         struct dhash_table_entry *entries,
         unsigned bits,
         uint64_t key, uint64_t value, uint64_t hash_value,
-        int *is_new_key)
+        int *is_new_key, unsigned *cc)
 {
     uint64_t i, offset;
     struct dhash_table_entry *last = NULL;
@@ -98,6 +99,8 @@ static struct dhash_table_pair *insert_pair_hashed(
                 if (is_new_key)
                     *is_new_key = 0;
                 return &entry->pair;
+            } else {
+                *cc += 1;
             }
             break;
         case HT_ENTRY_MARKED:
@@ -121,9 +124,10 @@ static struct dhash_table_pair *insert_pair(
         struct dhash_table_entry *entries,
         unsigned bits,
         uint64_t key, uint64_t value,
-        int *is_new_key)
+        int *is_new_key,
+        unsigned *cc)
 {
-    return insert_pair_hashed(entries, bits, key, value, hashf64(key), is_new_key);
+    return insert_pair_hashed(entries, bits, key, value, hashf64(key), is_new_key, cc);
 }
 
 static void dhashtable_grow_and_rehash(struct dhash_table *table)
@@ -137,7 +141,7 @@ static void dhashtable_grow_and_rehash(struct dhash_table *table)
         const struct dhash_table_entry *entry = &table->entries[i];
         if (entry->type == HT_ENTRY_FULL)
             insert_pair_hashed(new_entries, new_bits, entry->pair.key,
-                               entry->pair.value, entry->hash_value, NULL);
+                               entry->pair.value, entry->hash_value, NULL, &table->num_collisions);
     }
     // Assign the new array to the table
     free(table->entries);
@@ -153,7 +157,7 @@ struct dhash_table_pair *dhashtable_insert(
     if (load_exceeded(table))
         dhashtable_grow_and_rehash(table);
     struct dhash_table_pair *r = insert_pair(table->entries, table->bits, 
-                                             key, value, &is_new_key);
+                                             key, value, &is_new_key, &table->num_collisions);
     if (is_new_key)
         table->num_entries++;
     return r;

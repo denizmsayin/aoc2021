@@ -304,7 +304,7 @@ static u64 no_collision_cost_to_goal(const burrow_t burrow)
 
 static u64 heuristic(const burrow_t burrow)
 {
-    return no_collision_cost_to_goal(burrow);
+    return 0; // no_collision_cost_to_goal(burrow);
 }
 
 static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
@@ -429,6 +429,7 @@ int main(void)
     }
 
     fprintf(stderr, "States discovered: %lu\n", costs.num_entries);
+    fprintf(stderr, "Hash collisions: %u\n", costs.num_collisions);
     dhashtable_destroy(&costs);
 
     return 0;
