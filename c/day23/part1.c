@@ -9,357 +9,349 @@
 
 #define ROOM_HEIGHT     2
 #define HALLWAY_LEN     11
+#define HW_COMPACT_LEN  7
 #define AMPHS_PER_TYPE  ROOM_HEIGHT
-#define BURROW_HEIGHT   (ROOM_HEIGHT + 1)
-#define BURROW_WIDTH    HALLWAY_LEN
+#define BURROW_HEIGHT   (ROOM_HEIGHT + 3)
+#define BURROW_WIDTH    (HALLWAY_LEN + 2)
 #define BURROW_LEN      ((ROOM_HEIGHT * 4) + 7)
 #define HW_LEFT_I       (ROOM_HEIGHT * 4)
 
-// Try to do no space waste. Final state is:
-// AABBCCDD.......
-// Left is down, right is up.
-typedef char burrow_t[BURROW_LEN];
+// typedef struct {
+//     char rooms[4][ROOM_HEIGHT]; // Initial room containers, like stacks
+//     char room_size[4]; // 
+//     char final_rooms[4];
+//     char hallway[7];
+//     char pad[1];
+// } burrow_t;
 
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
 typedef uint64_t u64;
+
+// Since enum underlying types are int,
+// I'll make my own crude enum with defines
+#define EMPTY ((u16) 0)
+#define A ((u16) 1)
+#define B ((u16) 2)
+#define C ((u16) 3)
+#define D ((u16) 4)
+
+// Try to pack values 0-5 into 4 bits each
+typedef struct {
+    u16 room_stacks[4]; // 4 bits x 2/4 elements in each room, act as stacks
+    u32 hallway; // 4 bits x 7 spots
+    u16 room_fills; // 4 bits x 4 rooms
+    u16 pad; // Exact pad to 16 bytes
+} burrow_t;
+
+// Where are the sizes for the room stacks???
+// They need not exist! We can infer them directly
+// from the stacks themselves. 
+// Empty stack: 0x0000
+// One elem:    0x0002
+// ...
+// Four elems:  0x1234
+
+#ifndef RELEASE
+#define dbgassert(x) (assert(x))
+#else
+#define dbgassert(x)
+#endif
+
+static inline u16 get4(u32 x, int i)
+{
+    return (x >> (i << 2)) & 0xF;
+}
+
+static inline u32 clear4(u32 x, int i)
+{
+    return x & ~((u32) 0xF << (i << 2));
+}
+
+static inline u32 set4(u32 x, int i, u32 v)
+{
+    dbgassert (v <= 5);
+    return x | (v << (i << 2));
+}
+
+static inline u32 incr4(u32 x, int i)
+{
+    return x + (1 << (i << 2));
+}
+
+// Don't call when the stack is empty!
+static inline int stk_size(u16 stk)
+{
+    dbgassert (stk);
+    if (stk > 0xFF) {
+        if (stk > 0xFFF)
+            return 4;
+        else
+            return 3;
+    } else {
+        if (stk > 0xF)
+            return 2;
+        else
+            return 1;
+    }
+}
+
+// Many ops! Only used for printing though
+static u16 rev_stk(u16 stk)
+{
+    u16 rev = 0;
+    while (stk) {
+        rev <<= 4;
+        rev |= stk & 0xF;
+        stk >>= 4;
+    }
+    return rev;
+}
+
 #define U64_MAX (~((u64) 0))
+
+static inline u16 ch2code(char c)
+{
+    dbgassert (c == '.' || ('A' <= c && c <= 'D'));
+    if (c == '.')
+        return EMPTY;
+    else
+        return c - 'A' + 1;
+}
+
+static inline char code2ch(u16 code)
+{
+    if (code == 0)
+        return '.';
+    else
+        return 'A' + code - 1;
+}
+
+static inline u16 c2r(u16 code)
+{
+    return code - 1; // Sucks... But oh well!
+}
+
+static inline u16 r2c(u16 r)
+{
+    return r + 1;
+}
 
 // TODO: Become even more efficient!
 // Encode '.' as 5 and A, B, C, D as 0, 1, 2, 3
 // Pack whole rooms into numbers!
 // Cache stuff!
 // Anything goes...
+    
+static const int ROOM_JS[] = { 3, 5, 7, 9 };
 
-static void read_burrow(burrow_t burrow)
+static void read_burrow(burrow_t *burrow)
 {
-    size_t i, j;
-    int c, k;
+    char room_buf[ROOM_HEIGHT][16] = {0};
+    int i, j, c, k;
+    u32 x, sh;
+
+    memset(burrow, 0, sizeof(*burrow));
 
     assert (scanf("%*[^\n]\n") == 0); // Skip first line
 
-    j = BURROW_LEN - 1;
-    // Read the first line
-    i = 0;
-    getchar();
+    // Read the hallway 
+    x = i = sh = 0;
+    getchar(); // Skip first #
     while ((c = getchar()) != '\n') {   
-        if (i % 2 == 0 || i == 1 || i == HALLWAY_LEN)
-            burrow[j--] = c;
+        if (c != '#' && (i % 2 == 1 || i == 0 || i == HALLWAY_LEN-1)) {
+            x |= ch2code(c) << (sh << 2);
+            sh++;
+        }
         i++;
     } 
+    burrow->hallway = x;
+    assert (sh == 7);
 
-    // Read the hallway lines
-    for (k = 1; k >= 0; k--) {
-        j = k;
-        while ((c = getchar()) != '\n') {
-           if ('A' <= c && c <= 'D') {
-               burrow[j] = c;
-               j += ROOM_HEIGHT;
-           }
+    // Read the room, in other words (!): 空気を読め！
+    
+    // Read them all up for later scanning
+    for (k = 0; k < ROOM_HEIGHT; k++)
+        assert (fgets(room_buf[k], 16, stdin));
+
+    // Now, scan each room
+    for (k = 0; k < 4; k++) { // Iterate rooms from 1 to 4
+        u16 room_stack = 0, final_cnt = 0, is_final = 1;
+        j = ROOM_JS[k];
+        for (i = ROOM_HEIGHT - 1; i >= 0; i--) {
+            int ch = room_buf[i][j];
+            u16 code = ch2code(ch);
+            // To deal with initial amphs in the final spot
+            if (is_final && code == k + 1) {
+                final_cnt++;
+            } else {
+                is_final = 0;
+                room_stack <<= 4;
+                room_stack |= code;
+            }
         }
+        assert (final_cnt <= ROOM_HEIGHT);
+        burrow->room_stacks[k] = room_stack;
+        burrow->room_fills |= (final_cnt << (k << 2));
     }
 
     assert (scanf("%*[^\n]\n") == 0); // Skip last line
 }
 
-void print_burrow_raw(const burrow_t burrow)
+void print_burrow_raw(const burrow_t *burrow)
 {
-    for (size_t i = 0; i < BURROW_LEN; i++)
-        putchar(burrow[i]);
-    putchar('\n');
-}
-
-void putchar2(int a)
-{
-    putchar(a);
-    putchar(a);
-}
-
-void print_burrow(const burrow_t burrow)
-{
-    char fillc;
-
-    for (size_t i = 0; i < HALLWAY_LEN + 2; i++)
-        putchar('#');
-    putchar('\n');
-
-    putchar('#');
-    for (size_t i = 4 * ROOM_HEIGHT; i < BURROW_LEN; i++) {
-        putchar(burrow[i]);
-        if (4 * ROOM_HEIGHT + 1 <= i && i < 4 * ROOM_HEIGHT + 5)
-            putchar('.');
-    }
-
-    putchar('#');
-    putchar('\n');
-
-    fillc = '#';
-    for (int k = ROOM_HEIGHT - 1; k >= 0; k--) {
-        int j = k;
-        putchar2(fillc);
-        for (int i = 1; i <= HALLWAY_LEN - 2; i++) {
-            if (i & 1) {
-                putchar('#');
-            } else {
-                putchar(burrow[j]);
-                j += ROOM_HEIGHT;
-            }
-        }
-        putchar2(fillc);
+    puts("Room stacks:");
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++)
+            putchar(get4(burrow->room_stacks[i], j) + '0');
         putchar('\n');
-        fillc = ' ';
     }
+    printf("Room fills: ");
+    for (int i = 0; i < 4; i++)
+        putchar(get4(burrow->room_fills, i) + '0');
+    putchar('\n');
 
-    putchar2(' ');
-    for (int i = 1; i < HALLWAY_LEN - 1; i++)
-        putchar('#');
-    putchar2(' ');
+    printf("Hallway: ");
+    for (int i = 0; i < HW_COMPACT_LEN; i++)
+        putchar(get4(burrow->hallway, i) + '0');
     putchar('\n');
 }
 
-static inline u64 encode_ch(char c)
+void print_burrow(const burrow_t *burrow)
 {
-    return c == '.' ? 4 : c - 'A';
-}
+    int k;
+    char grid[BURROW_HEIGHT][BURROW_WIDTH + 1];
 
-static u64 encode_burrow(const burrow_t burrow)
-{
-    u64 e = 0;
-    for (int i = 0; i < BURROW_LEN; i++)
-        e = 5 * e + encode_ch(burrow[i]);
-    return e;
-}
+    memset(grid, '#', sizeof(grid));
 
-static inline char decode_ch(u64 e)
-{
-    return e == 4 ? '.' : e + 'A';
-}
+    for (int i = 0; i < BURROW_HEIGHT; i++)
+        grid[i][BURROW_WIDTH] = '\n';
 
-static void decode_burrow(u64 e, burrow_t burrow)
-{
-    for (int i = BURROW_LEN - 1; i >= 0; i--) {
-        burrow[i] = decode_ch(e % 5);
-        e /= 5;
+    for (int i = 3; i < BURROW_HEIGHT; i++)
+        grid[i][0] = grid[i][1] = grid[i][BURROW_WIDTH-2] = grid[i][BURROW_WIDTH-1] = ' ';
+
+    grid[BURROW_HEIGHT-1][BURROW_WIDTH] = 0; 
+
+    k = 1;
+    for (int j = 0; j < HW_COMPACT_LEN; j++) {
+        u16 code = (burrow->hallway >> (j << 2)) & 0xF;
+        grid[1][k++] = code2ch(code);
+        if (1 <= j && j <= 4)
+            grid[1][k++] = '.';
     }
-    assert (e == 0);
-}
 
-static inline int is_amph(char c) { return 'A' <= c && c <= 'D'; }
-
-static inline u64 amph_move_cost(char c)
-{
-    switch (c) {
-        case 'A': return 1;
-        case 'B': return 10;
-        case 'C': return 100;
-        case 'D': return 1000;
-        default: assert (0);
+    for (int r = 0; r < 4; r++) {
+        int stk = rev_stk(burrow->room_stacks[r]);
+        int i = BURROW_HEIGHT - 2;
+        int j = ROOM_JS[r];
+        char room_amph = code2ch(r2c(r));
+        int fill = get4(burrow->room_fills, r);
+        while (fill--)
+            grid[i--][j] = room_amph;
+        while (stk) {
+            u16 code = stk & 0xF;
+            stk >>= 4;
+            grid[i--][j] = code2ch(code);
+        }
+        while (i > 0)
+            grid[i--][j] = '.';
     }
+
+    puts((const char *) grid);
 }
 
-int room_available_spot(const burrow_t burrow, int room)
-{
-    char a = room + 'A';
-    int i = room * ROOM_HEIGHT;
-    int end = i + ROOM_HEIGHT;
-    int candidate;
-
-    while (i < end && burrow[i] == a)
-        i++;
-
-    candidate = i;
-
-    while (i < end && burrow[i] == '.')
-        i++;
-
-    return i == end ? candidate : -1;
+static inline int is_amph(u16 code) 
+{ 
+    dbgassert (code <= 5);
+    return code >= 1; 
 }
 
-static inline void move_nocost(burrow_t burrow, int i, int j)
+static inline u64 amph_move_cost(u16 code)
 {
-    burrow[j] = burrow[i];
-    burrow[i] = '.';
+    static u64 costs[] = { 0, 1, 10, 100, 1000 };
+    dbgassert (1 <= code && code <= 5);
+    return costs[code];
 }
 
-static inline void get_ij(int k, int *i, int *j)
+#define ROOMS_FILLED ((ROOM_HEIGHT << 12) | (ROOM_HEIGHT << 8)\
+                      | (ROOM_HEIGHT << 4) | ROOM_HEIGHT)
+
+static int amphipods_organized(const burrow_t *burrow)
 {
-    if (k < 4 * ROOM_HEIGHT) {
-        *j = (k / ROOM_HEIGHT) * 2 + 2;
-        *i = ROOM_HEIGHT - k % ROOM_HEIGHT;
-    } else {
-        *i = 0;
-        if (k <= 4 * ROOM_HEIGHT + 1)
-            *j = k - 4 * ROOM_HEIGHT;
-        else if (k <= 4 * ROOM_HEIGHT + 5)
-            *j = 2 * (k - 4 * ROOM_HEIGHT) - 1;
-        else
-            *j = BURROW_WIDTH - 1;
-    }
+    return burrow->room_fills == ROOMS_FILLED;
 }
 
-static inline u64 manhattan(int i, int j)
+
+#define GOLDEN_RATIO_64 0x61C8864680B583EBull
+
+static u64 hash_burrow(const void *burrow)
 {
-    int i1, i2, j1, j2;
-    get_ij(i, &i1, &j1);
-    get_ij(j, &i2, &j2);
-    return abs(i1 - i2) + abs(j1 - j2);
+    const u64 *arr = (const u64 *) burrow;
+    return ((arr[0] * GOLDEN_RATIO_64) ^ arr[1]) * GOLDEN_RATIO_64;
 }
 
-static inline u64 move(burrow_t burrow, int i, int j)
+static int eq_burrow(const void *b1, const void *b2)
 {
-    u64 mult = amph_move_cost(burrow[i]);
-    move_nocost(burrow, i, j);
-    return mult * manhattan(i, j);
+    const u64 *a1 = (const u64 *) b1, *a2 = (const u64 *) b2;
+    return a1[0] == a2[0] && a1[1] == a2[1];
 }
 
-static int amphipods_organized(const burrow_t burrow)
+struct dhashtable_ops burrow_ops = {
+    .hash = hash_burrow,
+    .eq = eq_burrow
+};
+
+burrow_t *copy_burrow(const burrow_t *burrow)
 {
-    char a = 'A';
-    for (int b = 0; b < 4 * ROOM_HEIGHT; b += ROOM_HEIGHT) {
-        for (int i = b; i < b + ROOM_HEIGHT; i++)
-            if (burrow[i] != a)
-                return 0;
-        a++;
-    }
-    return 1;
+    burrow_t *new = malloc(sizeof(*new));
+    memcpy(new, burrow, sizeof(*burrow));
+    return new;
 }
 
-static int amph_in_final_pos(const burrow_t burrow, int i)
+static u64 heuristic(const burrow_t *burrow)
 {
-    char a = burrow[i];
-    int ai = a - 'A';
-    int start = ai * ROOM_HEIGHT;
-    if (start <= i && i < start + ROOM_HEIGHT) {
-        while (--i >= start)
-            if (burrow[i] != a)
-                return 0;
-        return 1;
-    }
     return 0;
 }
 
-// static int amph_in_final_room(const burrow_t burrow, int i)
-// {
-//     char a = burrow[i];
-//     int ai = a - 'A';
-//     int start = ai * ROOM_HEIGHT;
-//     while (--i >= start)
-//         if (burrow[i] != 
-// 
-//     if (start <= i && i < start + ROOM_HEIGHT) {
-//         while (--i >= start)
-//             if (burrow[i] != a)
-//                 return 0;
-//         return 1;
-//     }
-//     return 0;
-// }
-
-static int room_to_hallway_clear(const burrow_t burrow, int i)
+static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, 
+                                   const burrow_t *neighbor, u64 tentative_cost)
 {
-    while (++i % ROOM_HEIGHT != 0)
-        if (burrow[i] != '.')
-            return 0;
-    return 1;
-}
-
-// Simply j distances to the target room
-/*
-static u64 horiz_cost_to_goal(const burrow_t burrow)
-{
-    u64 cost = 0;
-    for (int k = 0; k < BURROW_LEN; k++) {
-        if (is_amph(burrow[k])) {
-            int room = burrow[k] - 'A';
-            int room_j = 2 * room + 2;
-            int i, j;
-            get_ij(k, &i, &j);
-            cost += amph_move_cost(burrow[k]) * abs(room_j - j);
-        }
-    }
-    return cost;
-}
-*/
-
-// Actual cost of getting to the end, if only amphs could move
-// through eachother with no collision.
-static u64 no_collision_cost_to_goal(const burrow_t burrow)
-{
-    // cost of moving everyone 'down' into rooms from corridor
-    u64 cost = 1111 * ((ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2);
-    for (int k = 0; k < BURROW_LEN; k++) {
-        if (is_amph(burrow[k])) {
-            int room = burrow[k] - 'A';
-            int room_j = 2 * room + 2;
-            int i, j;
-            get_ij(k, &i, &j);
-            if (j == room_j) { // Reduce cost since already in room
-                cost -= amph_move_cost(burrow[k]) * abs(i);
-            } else { // Cost to move to top of the room
-                cost += amph_move_cost(burrow[k]) * (abs(room_j - j) + abs(i));
-            }
-        }
-    }
-    return cost;
-}
-
-
-static u64 heuristic(const burrow_t burrow)
-{
-    return no_collision_cost_to_goal(burrow);
-}
-
-static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
-                                   int si, int ti, int current_cost)
-{
-    u64 amph_move_cost = move(burrow, si, ti);
-    u64 neigh_enc = encode_burrow(burrow); // Zobrist for speed?
-    u64 tentative_cost = current_cost + amph_move_cost;
-    struct dhash_table_pair *p = dhashtable_lookup_or_insert(costs, neigh_enc, U64_MAX);
+    struct dhashtable_pair *p = dhashtable_lookup_or_insert(costs, neighbor, U64_MAX);
     if (tentative_cost < p->value) {
         // Less than old distance
         p->value = tentative_cost;
-        dheap_add(heap, neigh_enc, tentative_cost + heuristic(burrow));
+        dheap_add(heap, neighbor, tentative_cost + heuristic(neighbor));
     }
-    move_nocost(burrow, ti, si); // Undo the move
 }
 
-// 
-// static void hallway_traverse(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
-//                              int si, int sj, int je, int jincr, int current_cost)
-// {
-//     for (int jj = sj + jincr; jj != je; jj += jincr) {
-//         if (!is_room_j(jj)) { // Skip room columns
-//             if (burrow[0][jj] == '.') { // Add if clear
-//                 add_neighbor_to_search(costs, heap, burrow, si, sj, 0, jj,
-//                                        current_cost);
-//             } else {
-//                 break; // Stop otherwise, hallway is blocked
-//             }
-//         }
-//     }
-// }
+// Horizontal cost:
+// 0 1 | 2 | 3 | 4 | 5 6
+// * * | * | * | * | * *
+//     0   1   2   3
+// How to calculate it?
+// Let's convert indices with a lookup table and chill! v
+static const u16 ROOM_X[] = { 2, 4, 6, 8 };
+static const u16 HALLWAY_X[] = { 0, 1, 3, 5, 7, 9, 10 };
 
 int main(void)
 {
     static dheap_t heap;
-    burrow_t burrow;
+    burrow_t *initial_burrow = malloc(sizeof(*initial_burrow));
     dhashtable_t costs;
-    u64 enc;
 
-    dhashtable_init(&costs);
+    dhashtable_init(&costs, &burrow_ops);
 
-    read_burrow(burrow);
-   
-    enc = encode_burrow(burrow);
-    dhashtable_insert(&costs, enc, 0);
-    dheap_add(&heap, enc, heuristic(burrow));
+    read_burrow(initial_burrow);
+    dhashtable_insert(&costs, initial_burrow, 0);
+    dheap_add(&heap, initial_burrow, heuristic(initial_burrow));
 
     while (!dheap_empty(&heap)) {
         u64 current_f_cost = dheap_min(&heap);
-        u64 current_enc = dheap_min_key(&heap);
         u64 current_cost;
-        struct dhash_table_pair *p;
+        struct dhashtable_pair *p;
+        const burrow_t *burrow = dheap_min_key(&heap); // CAREFUL to restore if modif!!!
         dheap_pop_min(&heap);
-        decode_burrow(current_enc, burrow);
         current_cost = current_f_cost - heuristic(burrow);
 
         if (amphipods_organized(burrow)) {
@@ -367,405 +359,90 @@ int main(void)
             break;
         }
 
-        if ((p = dhashtable_lookup(&costs, current_enc)) && current_cost > p->value)
+        if ((p = dhashtable_lookup(&costs, burrow)) && current_cost > p->value)
             continue;
-// 
-//         print_burrow(burrow);
-//         print_burrow_raw(burrow);
 
-        // Room check
-        for (int i = 0; i < 4 * ROOM_HEIGHT; i++) {
-//             printf("%d: isa(%d) isfinal(%d) isclear(%d)\n", i, is_amph(burrow[i]), amph_in_final_pos(burrow, i), room_to_hallway_clear(burrow, i));
-            if (is_amph(burrow[i]) && !amph_in_final_pos(burrow, i) 
-                && room_to_hallway_clear(burrow, i)) 
-            {
-                int room = i / ROOM_HEIGHT;
-                int r =  room + 4 * ROOM_HEIGHT + 2;
-                int l = r - 1;
-                for (int ti = l; ti >= 4 * ROOM_HEIGHT; ti--) {
-                    if (burrow[ti] == '.')
-                        add_neighbor_to_search(&costs, &heap, burrow, i, ti, current_cost);
-                    else
+        // Check for moves from rooms to hallways
+        for (int room = 0; room < 4; room++) {
+            u16 stk = burrow->room_stacks[room];
+            if (stk) { // Amphs to empty out
+                u16 top = stk & 0xF;
+                u16 fill = get4(burrow->room_fills, room);
+                u64 vcost = ROOM_HEIGHT + 1 - stk_size(stk) - fill; // cost to get out of the room
+                u16 popd = stk >> 4;
+                for (int l = room + 1; l >= 0; l--) {
+                    if (get4(burrow->hallway, l)) { // != 0, contains a pod
                         break;
+                    } else {
+                        burrow_t *neighbor = copy_burrow(burrow);
+                        u64 hcost = abs(ROOM_X[room] - HALLWAY_X[l]); 
+                        u64 tent_cost = current_cost + amph_move_cost(top) * (vcost + hcost);
+                        neighbor->room_stacks[room] = popd;
+                        neighbor->hallway = set4(burrow->hallway, l, top);
+                        add_neighbor_to_search(&costs, &heap, neighbor, tent_cost);
+                    }
                 }
-                for (int ti = r; ti < BURROW_LEN; ti++) {
-                    if (burrow[ti] == '.')
-                        add_neighbor_to_search(&costs, &heap, burrow, i, ti, current_cost);
-                    else
+                for (int r = room + 2; r < HW_COMPACT_LEN; r++) {
+                    if (get4(burrow->hallway, r)) { // != 0, contains a pod
                         break;
+                    } else {
+                        // Spot exists, create neighbor & add it
+                        burrow_t *neighbor = copy_burrow(burrow);
+                        u64 hcost = abs(ROOM_X[room] - HALLWAY_X[r]); 
+                        u64 tent_cost = current_cost + amph_move_cost(top) * (vcost + hcost);
+                        neighbor->room_stacks[room] = popd;
+                        neighbor->hallway = set4(burrow->hallway, r, top);
+                        add_neighbor_to_search(&costs, &heap, neighbor, tent_cost);
+                    }
                 }
             }
         }
 
-        // Hallway check
-        for (int i = 4 * ROOM_HEIGHT; i < BURROW_LEN; i++) {
-            if (is_amph(burrow[i])) {
-                int room = burrow[i] - 'A';
-                int ti = room_available_spot(burrow, room);
-                if (ti != -1) {
-                    int r = room + 4 * ROOM_HEIGHT + 2;
-                    int ok = 1; // Make sure hallway is empty
-                    if (i >= r) { // Right of target room
-                        for (int j = i - 1; j >= r; j--) {
-                            if (burrow[j] != '.') {
-                                ok = 0;
+        // Now check for moves from the hallway to rooms
+        for (int i = 0; i < HW_COMPACT_LEN; i++) {
+            u32 hallway = burrow->hallway;
+            u16 code = get4(hallway, i);
+            if (is_amph(code)) {
+                u16 room = c2r(code);
+                u16 fill = get4(burrow->room_fills, room);
+                if (!burrow->room_stacks[room]) { // Room is emptied and open for visits
+                    // Still need to make sure the hallway is clear, though...
+                    int roomi = room + 2; // Index just to right of room
+                    int path_clear = 1;
+                    if (i < roomi) { // To the left
+                        for (int j = i + 1; j < roomi; j++) {
+                            if (get4(hallway, j)) {
+                                path_clear = 0;
                                 break;
                             }
                         }
-                    } else { // Left of target room
-                        int l = r - 1;
-                        for (int j = i + 1; j <= l; j++) {
-                            if (burrow[j] != '.') {
-                                ok = 0;
+                    } else { // To the right
+                        for (int j = i - 1; j >= roomi; j--) {
+                            if (get4(hallway, j)) {
+                                path_clear = 0;
                                 break;
                             }
                         }
                     }
-                    if (ok)
-                        add_neighbor_to_search(&costs, &heap, burrow, i, ti, current_cost);
+
+                    if (path_clear) {
+                        burrow_t *neighbor = copy_burrow(burrow);
+                        u64 hcost = abs(ROOM_X[room] - HALLWAY_X[i]);
+                        u64 vcost = ROOM_HEIGHT - fill;
+                        u64 tent_cost = current_cost + amph_move_cost(code) * (vcost + hcost);
+                        neighbor->hallway = clear4(burrow->hallway, i);
+                        neighbor->room_fills = incr4(burrow->room_fills, room);
+                        add_neighbor_to_search(&costs, &heap, neighbor, tent_cost);
+                    }
                 }
             }
         }
     }
 
-    fprintf(stderr, "States discovered: %lu\n", costs.num_entries);
+    fprintf(stderr, "States explored: %lu\n", costs.num_entries);
+    
     dhashtable_destroy(&costs);
 
     return 0;
 }
 
-// static u64 encode_burrow(const burrow_t burrow)
-// {
-//     u64 enc = 0;
-//     for (size_t i = 0; i < BURROW_HEIGHT; i++) {
-//         for (size_t j = 0 ; j < BURROW_WIDTH; j++) {
-//             char c = burrow[i][j];
-//             if (c == '#') {
-//                 continue;
-//             } else if (c == '.') {
-//                 enc *= 5;
-//             } else {
-//                 enc = 5 * enc + c - 'A' + 1;
-//             }
-//         }
-//     }
-//     return enc;
-// }
-// 
-// static inline char decode_ch(u64 *enc)
-// {
-//     u64 enc_ch = *enc % 5;
-//     *enc /= 5;
-//     if (enc_ch == 0)
-//         return '.';
-//     return enc_ch - 1 + 'A';
-// }
-// 
-// static void decode_burrow(u64 enc, burrow_t burrow)
-// {
-//     init_burrow(burrow);
-// 
-//     // Decode side rooms
-//     for (size_t i = ROOM_HEIGHT; i > 0; i--)
-//         for (size_t j = 8; j >= 2; j -= 2)
-//             burrow[i][j] = decode_ch(&enc);
-// 
-//     // Decode hallway
-//     for (size_t j = BURROW_WIDTH; j --> 0;) // Ah yes, the 'goes to' operator :3
-//         burrow[0][j] = decode_ch(&enc);
-// 
-//     assert (enc == 0);
-// }
-// 
-// typedef long long lli;
-// 
-// static inline int is_amph(char c) { return 'A' <= c && c <= 'D'; }
-// 
-// static inline u64 amph_move_cost(char c)
-// {
-//     switch (c) {
-//         case 'A': return 1;
-//         case 'B': return 10;
-//         case 'C': return 100;
-//         case 'D': return 1000;
-//         default: assert (0);
-//     }
-// }
-// 
-// static inline int target_room_j(char c)
-// {
-//     return 2 * (c - 'A' + 1);
-// }
-// 
-// static inline char room_target_amph(int j)
-// {
-//     return (j / 2) - 1 + 'A';
-// }
-// 
-// // Start not inclusive, end inclusive
-// int row_clear(const burrow_t burrow, int start, int end, int i)
-// {
-//     int inc = start > end ? -1 : 1;
-//     for (int j = start + inc; j != end; j += inc)
-//         if (burrow[i][j] != '.')
-//             return 0;
-//     return 1;
-// }
-// 
-// // Returns an index for an available i in the given room,
-// // otherwise returns -1, in case the room is not available
-// int room_available_spot(const burrow_t burrow, int j)
-// {
-//     char a = room_target_amph(j);
-//     int i = ROOM_HEIGHT, candidate;
-// 
-//     // Skip same amphs
-//     while (i > 0 && burrow[i][j] == a)
-//         i--;
-// 
-//     candidate = i;
-// 
-//     // Now, all remaining slots should be empty
-//     while (i > 0 && burrow[i][j] == '.')
-//         i--;
-// 
-//     if (i == 0)
-//         return candidate;
-//     return -1;
-// }
-// 
-// static inline void move_nocost(burrow_t burrow, int si, int sj, int ti, int tj)
-// {
-//     burrow[ti][tj] = burrow[si][sj];
-//     burrow[si][sj] = '.';
-// }
-// 
-// static inline u64 move(burrow_t burrow, int si, int sj, int ti, int tj)
-// {
-//     u64 dist = abs(si - ti) + abs(sj - tj);
-//     u64 cost = dist * amph_move_cost(burrow[si][sj]);
-//     move_nocost(burrow, si, sj, ti, tj);
-//     return cost;
-// }
-// 
-// static int amph_in_final_pos(const burrow_t burrow, int i, int j)
-// {
-//     // To be in a final position, an amphipod must be
-//     // in its target room, and all amphipods below it
-//     // should be of the correct type as well.
-//     char a = burrow[i][j];
-//     if (j == target_room_j(a)) {
-//         for (int ii = i + 1; ii <= ROOM_HEIGHT; ii++)
-//             if (burrow[ii][j] != a)
-//                 return 0;
-//         return 1;
-//     }
-//     return 0;
-// }
-// 
-// static int room_to_hallway_clear(const burrow_t burrow, int i, int j)
-// {
-//     for (int ii = i - 1; ii > 0; ii--)
-//         if (burrow[ii][j] != '.')
-//             return 0;
-//     return 1;
-// }
-// 
-// static int amphipods_organized(const burrow_t burrow)
-// {
-//     for (int j = 2; j <= 8; j += 2) {
-//         char a = room_target_amph(j);
-//         for (int i = ROOM_HEIGHT; i > 0; i--)
-//             if (burrow[i][j] != a)
-//                 return 0;
-//     }
-//     return 1;
-// }
-// 
-// static inline int is_room_j(int j) { return j == 2 || j == 4 || j == 6 || j == 8; }
-// 
-// static void find_amph_positions(const burrow_t burrow, int positions[4][AMPHS_PER_TYPE][2])
-// {
-//     int inds[4] = {0};
-//     for (int i = 0; i < BURROW_HEIGHT; i++) {
-//         for (int j = 0; j < BURROW_WIDTH; j++) {
-//             if (is_amph(burrow[i][j])) {
-//                 int a = burrow[i][j] - 'A';
-//                 positions[a][inds[a]][0] = i;
-//                 positions[a][inds[a]][1] = j;
-//                 inds[a]++;
-//             }
-//         }
-//     }
-// }
-// 
-// static u64 no_collision_cost(int positions[4][AMPHS_PER_TYPE][2])
-// {
-//     static const int pushdown_cost = (ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2;
-// 	// Try every permutation, assign minimum distance
-//     u64 total_cost = 0;
-//     for (int a = 0; a < 4; a++) {
-//         int tj = target_room_j(a + 'A');
-//         u64 cost = pushdown_cost;
-//         for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
-//             if (positions[a][ai][1] == tj) { // In final room, reduce cost
-//                 cost -= positions[a][ai][0];
-//             } else { // Move to top of final room, no collision
-//                 cost += abs(positions[a][ai][0]);
-//                 cost += abs(positions[a][ai][1] - tj);
-//             }
-//         }
-//         total_cost += amph_move_cost(a + 'A') * cost;
-//     }
-//     return total_cost;
-// }
-// 
-// static u64 heuristic(const burrow_t burrow)
-// {
-//     int positions[4][AMPHS_PER_TYPE][2];
-//     find_amph_positions(burrow, positions);
-//     return no_collision_cost(positions);
-// } 
-// 
-// static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
-//                                    int si, int sj, int ti, int tj, int current_cost)
-// {
-//     u64 amph_move_cost = move(burrow, si, sj, ti, tj);
-//     u64 neigh_enc = encode_burrow(burrow); // Zobrist for speed?
-//     u64 tentative_cost = current_cost + amph_move_cost;
-//     struct dhash_table_pair *p = dhashtable_lookup_or_insert(costs, neigh_enc, U64_MAX);
-//     if (tentative_cost < p->value) {
-//         // Less than old distance
-//         p->value = tentative_cost;
-//         dheap_add(heap, neigh_enc, tentative_cost + heuristic(burrow));
-//     }
-//     move_nocost(burrow, ti, tj, si, sj); // Undo the move
-// }
-// 
-// 
-// static void hallway_traverse(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
-//                              int si, int sj, int je, int jincr, int current_cost)
-// {
-//     for (int jj = sj + jincr; jj != je; jj += jincr) {
-//         if (!is_room_j(jj)) { // Skip room columns
-//             if (burrow[0][jj] == '.') { // Add if clear
-//                 add_neighbor_to_search(costs, heap, burrow, si, sj, 0, jj,
-//                                        current_cost);
-//             } else {
-//                 break; // Stop otherwise, hallway is blocked
-//             }
-//         }
-//     }
-// }
-// 
-// int main(void)
-// {
-//     static dheap_t heap; // the heap is huge!
-//     dhashtable_t costs;
-//     burrow_t burrow;
-//     u64 enc;
-// 
-//     dhashtable_init(&costs);
-// 
-//     read_burrow(burrow);
-//     
-//     enc = encode_burrow(burrow);
-//     dhashtable_insert(&costs, enc, 0);
-//     dheap_add(&heap, enc, heuristic(burrow));
-// 
-//     // Time to dijkstra up!
-//     while (!dheap_empty(&heap)) {
-//         u64 current_f_cost = dheap_min(&heap);
-//         u64 current_enc = dheap_min_key(&heap);
-//         u64 current_cost;
-//         struct dhash_table_pair *p;
-//         dheap_pop_min(&heap);
-//         decode_burrow(current_enc, burrow);
-//         current_cost = current_f_cost - heuristic(burrow);
-// 
-//         // TODO: Final state check
-//         if (amphipods_organized(burrow)) {
-//             printf("%lu\n", current_cost);
-//             break;;
-//         }
-// 
-//         // Skip if already found better before
-//         if ((p = dhashtable_lookup(&costs, current_enc)) && current_cost > p->value)
-//             continue;
-// 
-//         // Now, need to find neighbors. Hard to make it abstract since I do not
-//         // want to do extra alloc's.
-// 
-//         // First, check the hallway
-//         for (int j = 0; j < BURROW_WIDTH; j++) {
-//             if (is_amph(burrow[0][j])) {
-//                 int target_i, target_j = target_room_j(burrow[0][j]);
-//                 // Check for slot in the room and clear hallway
-//                 if ((target_i = room_available_spot(burrow, target_j)) != -1
-//                     && row_clear(burrow, j, target_j, 0))
-//                 {
-//                     add_neighbor_to_search(&costs, &heap, burrow, 0, j,
-//                                            target_i, target_j, current_cost);
-//                 }
-//             }
-//         }
-// 
-//         // Now, check the rooms
-//         for (int j = 2; j <= 8; j += 2) {
-//             for (int i = ROOM_HEIGHT; i > 0; i--) {
-//                 if (is_amph(burrow[i][j]) && !amph_in_final_pos(burrow, i, j)
-//                     && room_to_hallway_clear(burrow, i, j)) 
-//                 {
-//                     // Find clear positions in the hallway, both directions
-//                     hallway_traverse(&costs, &heap, burrow, i, j, -1, -1, current_cost);
-//                     hallway_traverse(&costs, &heap, burrow, i, j, BURROW_WIDTH, 1, current_cost);
-//                 }
-//             }
-//         }
-//     }
-//     
-//     fprintf(stderr, "States discovered: %lu\n", costs.num_entries);
-//     dhashtable_destroy(&costs);
-//     return 0;
-// }
-
-// A hard to compute and kind of pointless heuristic, bad idea! Assumes
-// the amphipods can go through walls, which is not realistic...
-// Useful for part1 because it's actually close to the no-collision cost.
-// It breaks down hard in part2, and only saves like ~250 states out of 85k,
-// and triples total  time due to its computation cost. Oof!
-// u64 noclip_cost(int positions[4][AMPHS_PER_TYPE][2])
-// {
-// #if (AMPHS_PER_TYPE == 4)
-//     static const int permutations[][4] = {
-// 		{0,1,2,3}, {1,0,2,3}, {2,1,0,3}, {1,2,0,3}, {2,0,1,3}, {0,2,1,3},
-// 		{3,2,1,0}, {2,3,1,0}, {2,1,3,0}, {3,1,2,0}, {1,3,2,0}, {1,2,3,0},
-// 		{3,0,1,2}, {0,3,1,2}, {0,1,3,2}, {3,1,0,2}, {1,3,0,2}, {1,0,3,2},
-// 		{3,0,2,1}, {0,3,2,1}, {0,2,3,1}, {3,2,0,1}, {2,3,0,1}, {2,0,3,1}
-// 	};
-// #elif (AMPHS_PER_TYPE == 2)
-//     static const int permutations[][2] = { {0,1}, {1,0} };
-// #else
-// #error Unsupported AMPHS_PER_TYPE count.
-// #endif
-// 	static const int n_perms = sizeof(permutations) / sizeof(permutations[0]);
-// 	// Try every permutation, assign minimum distance
-//     u64 total_cost = 0;
-//     for (int a = 0; a < 4; a++) {
-//         int tj = target_room_j(a + 'A');
-//         u64 min_cost = U64_MAX;
-// 		for (int pi = 0; pi < n_perms; pi++) {
-//             u64 cost = 0;
-//             for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
-//                 int ti = permutations[pi][ai] + 1;
-//                 cost += abs(positions[a][ai][0] - ti);
-//                 cost += abs(positions[a][ai][1] - tj);
-//             }
-//             if (cost < min_cost)
-//                 min_cost = cost;
-//         }
-//         assert (min_cost != U64_MAX);
-//         total_cost += amph_move_cost(a + 'A') * min_cost;
-//     }
-//     return total_cost;
-// }

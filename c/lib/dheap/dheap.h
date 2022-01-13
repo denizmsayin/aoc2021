@@ -11,7 +11,7 @@
 typedef struct {
     struct dheapnode {
         uint64_t value;
-        uint64_t key;
+        const void *key;
     } array[DHEAP_CAP];
     size_t size;
 } dheap_t;
@@ -19,9 +19,9 @@ typedef struct {
 #define DHEAP_INIT { .size = 0 }
 
 int dheap_empty(const dheap_t *);
-void dheap_add(dheap_t *, uint64_t k, uint64_t v);
+void dheap_add(dheap_t *, const void *k, uint64_t v);
 uint64_t dheap_min(const dheap_t *);
-uint64_t dheap_min_key(const dheap_t *);
+const void *dheap_min_key(const dheap_t *);
 void dheap_pop_min(dheap_t *);
 
 // For testing
