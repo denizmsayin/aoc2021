@@ -27,6 +27,7 @@ usage: $(basename $0) [-bhg] [-l LANG] [-t TEST_THRESH]
                   A program is tested multiple times until the threshold is exceeded
                   for slightly more accurate timing estimation. 1 by default to quickly
                   run each program just once.
+  -d DAY:         Only test for a single specific day.
 EOF
 }
 
@@ -39,8 +40,9 @@ BUILD=false
 GENERATE=false
 TIMEOUT=15s
 TIME_THRESH=1
+DAY=
 
-while getopts hbgl:t: opt; do
+while getopts hbgl:t:d: opt; do
   case $opt in
     b)
       BUILD=true
@@ -53,6 +55,9 @@ while getopts hbgl:t: opt; do
       ;;
     t)
       TIME_THRESH=$OPTARG
+      ;;
+    d)
+      DAY=$OPTARG
       ;;
     h)
       usage
@@ -99,6 +104,9 @@ declare -A mstimes
 for lang in $LANGS; do
   cd $lang
   for day in day??; do
+    if [ -n "$DAY" -a "day$DAY" != "$day" ]; then
+      continue
+    fi
     cd $day
     iod="../../io/$day"
     for c in 1 2; do

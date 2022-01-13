@@ -25,6 +25,9 @@ typedef uint64_t u64;
 
 // TODO: Become even more efficient!
 // Encode '.' as 5 and A, B, C, D as 0, 1, 2, 3
+// Pack whole rooms into numbers!
+// Cache stuff!
+// Anything goes...
 
 static void read_burrow(burrow_t burrow)
 {
@@ -44,7 +47,7 @@ static void read_burrow(burrow_t burrow)
     } 
 
     // Read the hallway lines
-    for (k = ROOM_HEIGHT - 1; k >= 0; k--) {
+    for (k = 1; k >= 0; k--) {
         j = k;
         while ((c = getchar()) != '\n') {
            if ('A' <= c && c <= 'D') {
@@ -258,6 +261,52 @@ static int room_to_hallway_clear(const burrow_t burrow, int i)
     return 1;
 }
 
+// Simply j distances to the target room
+/*
+static u64 horiz_cost_to_goal(const burrow_t burrow)
+{
+    u64 cost = 0;
+    for (int k = 0; k < BURROW_LEN; k++) {
+        if (is_amph(burrow[k])) {
+            int room = burrow[k] - 'A';
+            int room_j = 2 * room + 2;
+            int i, j;
+            get_ij(k, &i, &j);
+            cost += amph_move_cost(burrow[k]) * abs(room_j - j);
+        }
+    }
+    return cost;
+}
+*/
+
+// Actual cost of getting to the end, if only amphs could move
+// through eachother with no collision.
+static u64 no_collision_cost_to_goal(const burrow_t burrow)
+{
+    // cost of moving everyone 'down' into rooms from corridor
+    u64 cost = 1111 * ((ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2);
+    for (int k = 0; k < BURROW_LEN; k++) {
+        if (is_amph(burrow[k])) {
+            int room = burrow[k] - 'A';
+            int room_j = 2 * room + 2;
+            int i, j;
+            get_ij(k, &i, &j);
+            if (j == room_j) { // Reduce cost since already in room
+                cost -= amph_move_cost(burrow[k]) * abs(i);
+            } else { // Cost to move to top of the room
+                cost += amph_move_cost(burrow[k]) * (abs(room_j - j) + abs(i));
+            }
+        }
+    }
+    return cost;
+}
+
+
+static u64 heuristic(const burrow_t burrow)
+{
+    return no_collision_cost_to_goal(burrow);
+}
+
 static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t burrow, 
                                    int si, int ti, int current_cost)
 {
@@ -268,7 +317,7 @@ static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap, burrow_t 
     if (tentative_cost < p->value) {
         // Less than old distance
         p->value = tentative_cost;
-        dheap_add(heap, neigh_enc, tentative_cost);
+        dheap_add(heap, neigh_enc, tentative_cost + heuristic(burrow));
     }
     move_nocost(burrow, ti, si); // Undo the move
 }
@@ -302,14 +351,16 @@ int main(void)
    
     enc = encode_burrow(burrow);
     dhashtable_insert(&costs, enc, 0);
-    dheap_add(&heap, enc, 0);
+    dheap_add(&heap, enc, heuristic(burrow));
 
     while (!dheap_empty(&heap)) {
-        u64 current_cost = dheap_min(&heap);
+        u64 current_f_cost = dheap_min(&heap);
         u64 current_enc = dheap_min_key(&heap);
+        u64 current_cost;
         struct dhash_table_pair *p;
         dheap_pop_min(&heap);
         decode_burrow(current_enc, burrow);
+        current_cost = current_f_cost - heuristic(burrow);
 
         if (amphipods_organized(burrow)) {
             printf("%lu\n", current_cost);
