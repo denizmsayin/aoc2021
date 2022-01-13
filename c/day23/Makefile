@@ -4,7 +4,6 @@ VPATH=../lib/dheap ../lib/dhashtable
 INCLUDE_FLAGS=-I$(LIBDIR)
 
 CFLAGS=-Wall -O3 $(INCLUDE_FLAGS)
-LDLIBS=-pg
 
 all: part1 part2
 
