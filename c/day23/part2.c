@@ -208,49 +208,33 @@ static int amphipods_organized(const burrow_t burrow)
 
 static inline int is_room_j(int j) { return j == 2 || j == 4 || j == 6 || j == 8; }
 
-static void find_amph_positions(const burrow_t burrow, int positions[4][AMPHS_PER_TYPE][2])
+// Saved around ~10k states on part2 (around ~12.5%), but actually does
+// not even pay for itself...
+static u64 no_collision_cost(const burrow_t burrow)
 {
-    int inds[4] = {0};
+    static const int pushdown_cost = (ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2;
+	// Try every permutation, assign minimum distance
+    u64 costs[4] = { pushdown_cost, pushdown_cost, pushdown_cost, pushdown_cost };
     for (int i = 0; i < BURROW_HEIGHT; i++) {
         for (int j = 0; j < BURROW_WIDTH; j++) {
             if (is_amph(burrow[i][j])) {
                 int a = burrow[i][j] - 'A';
-                positions[a][inds[a]][0] = i;
-                positions[a][inds[a]][1] = j;
-                inds[a]++;
+                int tj = target_room_j(burrow[i][j]);
+                if (j == tj) { // In final room, reduce cost
+                    costs[a] -= i;
+                } else { // Move to top of final room, no collision
+                    costs[a] += i;
+                    costs[a] += abs(j - tj);
+                }
             }
         }
     }
-}
-
-// Saved around ~10k states on part2 (around ~12.5%), but actually does
-// not even pay for itself...
-static u64 no_collision_cost(int positions[4][AMPHS_PER_TYPE][2])
-{
-    static const int pushdown_cost = (ROOM_HEIGHT * (ROOM_HEIGHT + 1)) / 2;
-	// Try every permutation, assign minimum distance
-    u64 total_cost = 0;
-    for (int a = 0; a < 4; a++) {
-        int tj = target_room_j(a + 'A');
-        u64 cost = pushdown_cost;
-        for (int ai = 0; ai < AMPHS_PER_TYPE; ai++) {
-            if (positions[a][ai][1] == tj) { // In final room, reduce cost
-                cost -= positions[a][ai][0];
-            } else { // Move to top of final room, no collision
-                cost += abs(positions[a][ai][0]);
-                cost += abs(positions[a][ai][1] - tj);
-            }
-        }
-        total_cost += move_cost(a + 'A') * cost;
-    }
-    return total_cost;
+    return costs[0] + 10 * costs[1] + 100 * costs[2] + 1000 * costs[3];
 }
 
 static u64 heuristic(const burrow_t burrow)
 {
-    int positions[4][AMPHS_PER_TYPE][2];
-    find_amph_positions(burrow, positions);
-    return no_collision_cost(positions);
+    return no_collision_cost(burrow);
 } 
 
 static void add_neighbor_to_search(dhashtable_t *costs, dhashtable_t *depths, 
