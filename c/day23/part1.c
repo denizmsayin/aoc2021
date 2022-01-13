@@ -39,10 +39,10 @@ typedef uint64_t u64;
 
 // Try to pack values 0-5 into 4 bits each
 typedef struct {
-    u16 room_stacks[4]; // 4 bits x 2/4 elements in each room, act as stacks
     u32 hallway; // 4 bits x 7 spots
-    u16 room_fills; // 4 bits x 4 rooms
+    u16 room_stacks[4]; // 4 bits x 2/4 elements in each room, act as stacks
     u16 pad; // Exact pad to 16 bytes
+    u16 room_fills; // 4 bits x 4 rooms
 } burrow_t;
 
 // Where are the sizes for the room stacks???
@@ -288,7 +288,9 @@ static int amphipods_organized(const burrow_t *burrow)
 static u64 hash_burrow(const void *burrow)
 {
     const u64 *arr = (const u64 *) burrow;
-    return ((arr[0] * GOLDEN_RATIO_64) ^ arr[1]) * GOLDEN_RATIO_64;
+    u64 seed = arr[0] * GOLDEN_RATIO_64;
+    seed ^= arr[1] * GOLDEN_RATIO_64 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    return seed;
 }
 
 static int eq_burrow(const void *b1, const void *b2)
@@ -440,6 +442,7 @@ int main(void)
     }
 
     fprintf(stderr, "States explored: %lu\n", costs.num_entries);
+    fprintf(stderr, "Hash collisions: %u\n", costs.collision_count);
     
     dhashtable_destroy(&costs);
 

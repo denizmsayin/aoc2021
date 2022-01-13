@@ -43,6 +43,7 @@ void dhashtable_init(struct dhashtable *table, const struct dhashtable_ops *ops)
 {
     table->bits = HASH_TABLE_MIN_BITS;
     table->num_entries = 0;
+    table->collision_count = 0;
     table->entries = calloc(HASH_TABLE_MIN_SIZE, sizeof(*table->entries));
     table->ops = ops;
 }
@@ -70,7 +71,7 @@ static struct dhashtable_pair *insert_pair_hashed(
         struct dhashtable_entry *entries,
         unsigned bits,
         const void *key, uint64_t value, uint64_t hash_value,
-        int *is_new_key, const struct dhashtable_ops *ops)
+        int *is_new_key, const struct dhashtable_ops *ops, unsigned *cc)
 {
     uint64_t i, offset;
     struct dhashtable_entry *last = NULL;
@@ -94,6 +95,8 @@ static struct dhashtable_pair *insert_pair_hashed(
                 if (is_new_key)
                     *is_new_key = 0;
                 return &entry->pair;
+            } else {
+                *cc += 1;
             }
             break;
         case HT_ENTRY_MARKED:
@@ -118,9 +121,10 @@ static struct dhashtable_pair *insert_pair(
         unsigned bits,
         const void *key, uint64_t value,
         int *is_new_key,
-        const struct dhashtable_ops *ops)
+        const struct dhashtable_ops *ops,
+        unsigned *cc)
 {
-    return insert_pair_hashed(entries, bits, key, value, ops->hash(key), is_new_key, ops);
+    return insert_pair_hashed(entries, bits, key, value, ops->hash(key), is_new_key, ops, cc);
 }
 
 static void dhashtable_grow_and_rehash(struct dhashtable *table)
@@ -134,7 +138,7 @@ static void dhashtable_grow_and_rehash(struct dhashtable *table)
         const struct dhashtable_entry *entry = &table->entries[i];
         if (entry->type == HT_ENTRY_FULL)
             insert_pair_hashed(new_entries, new_bits, entry->pair.key, entry->pair.value, 
-                               entry->hash_value, NULL, table->ops);
+                               entry->hash_value, NULL, table->ops, &table->collision_count);
     }
     // Assign the new array to the table
     free(table->entries);
@@ -150,7 +154,7 @@ struct dhashtable_pair *dhashtable_insert(
     if (load_exceeded(table))
         dhashtable_grow_and_rehash(table);
     struct dhashtable_pair *r = insert_pair(table->entries, table->bits, 
-                                             key, value, &is_new_key, table->ops);
+                                             key, value, &is_new_key, table->ops, &table->collision_count);
     if (is_new_key)
         table->num_entries++;
     return r;
@@ -177,6 +181,27 @@ static struct dhashtable_entry *dhashtable_lookup_e(const struct dhashtable *tab
     return NULL;
 }
 
+static struct dhashtable_entry *dhashtable_lookup_f(const struct dhashtable *table, 
+                                                    const void *key, uint64_t hash_value)
+{
+    uint64_t i, offset, mask = BITMASK(table->bits);
+    // Triangular numbers are famous with 2^ hashes apparently, so
+    // I'm going to use them. Finding an empty spot is guaranteed!
+    // http://www.chilton-computing.org.uk/acl/literature/reports/p012.htm
+    for (i = hash_value & mask, offset = 1;
+         offset <= BITS2SIZE(table->bits); 
+         i = (i + offset) & mask, offset++)
+    {
+        struct dhashtable_entry *entry = &table->entries[i];
+        if (entry->type == HT_ENTRY_EMPTY)
+            return entry;
+        if (entry->type == HT_ENTRY_FULL && hash_value == entry->hash_value && 
+            table->ops->eq(entry->pair.key, key))
+            return entry;
+    }
+    return NULL;
+}
+
 struct dhashtable_pair *dhashtable_lookup(const struct dhashtable *table, const void *key)
 {
     struct dhashtable_entry *m = dhashtable_lookup_e(table, key);
@@ -186,10 +211,15 @@ struct dhashtable_pair *dhashtable_lookup(const struct dhashtable *table, const 
 struct dhashtable_pair *dhashtable_lookup_or_insert(struct dhashtable *table, 
                                                     const void *key, uint64_t value)
 {
-    struct dhashtable_pair *p = dhashtable_lookup(table, key);
-    if (p)
-        return p;
-    return dhashtable_insert(table, key, value);
+    if (load_exceeded(table))
+        dhashtable_grow_and_rehash(table);
+    uint64_t hash_value = table->ops->hash(key);
+    struct dhashtable_entry *e = dhashtable_lookup_f(table, key, hash_value);
+    if (e->type == HT_ENTRY_EMPTY) {
+        insert_into_entry(e, key, value, hash_value);
+        table->num_entries++;
+    }
+    return &e->pair;
 }
 
 static const struct dhashtable_pair NULL_PAIR = {0, 0};

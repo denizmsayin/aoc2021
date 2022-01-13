@@ -22,6 +22,7 @@ typedef struct dhashtable {
     struct dhashtable_entry *entries;
     size_t num_entries;
     unsigned bits;
+    unsigned collision_count;
     const struct dhashtable_ops *ops;
 } dhashtable_t;
 
