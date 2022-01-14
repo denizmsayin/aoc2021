@@ -3,7 +3,13 @@ VPATH=../lib/dheap ../lib/dhashtable
 
 INCLUDE_FLAGS=-I$(LIBDIR)
 
-CFLAGS=-Wall -O3 $(INCLUDE_FLAGS)
+ifdef RELEASE 
+CFLAGS=-Wall -O3 -DRELEASE
+else
+CFLAGS=-Wall -Wshadow -Wextra -O0 -g
+endif
+
+CFLAGS += $(INCLUDE_FLAGS)
 
 all: part1 part2
 

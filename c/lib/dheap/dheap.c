@@ -44,7 +44,7 @@ static void perc_up(dheap_t *h, size_t i)
     arr[i] = v;
 }
 
-void dheap_add(dheap_t *h, uint64_t k, uint64_t v)
+void dheap_add(dheap_t *h, const void *k, uint64_t v)
 {
     size_t sz = h->size;
     assert (sz < DHEAP_CAP);
@@ -59,7 +59,7 @@ uint64_t dheap_min(const dheap_t *h)
     return h->array[0].value;
 }
 
-uint64_t dheap_min_key(const dheap_t *h)
+const void *dheap_min_key(const dheap_t *h)
 {
     assert (!dheap_empty(h));
     return h->array[0].key;
