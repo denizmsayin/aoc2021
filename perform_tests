@@ -22,6 +22,7 @@ usage: $(basename $0) [-bhg] [-l LANG] [-t TEST_THRESH]
   -h:             Show this help message.
   -b:             Attempt to build the tested codes.
   -g:             Regenerate README with results.
+  -s:             Skip tests, useful for regenerating the README quickly.
   -l LANG:        Only test for language LANG. (rust, haskell, c)
   -t TEST_THRESH: Stop testing a program after exceeding TEST_THRESH milliseconds.
                   A program is tested multiple times until the threshold is exceeded
@@ -41,11 +42,15 @@ GENERATE=false
 TIMEOUT=15s
 TIME_THRESH=1
 DAY=
+SKIP_TEST=false
 
-while getopts hbgl:t:d: opt; do
+while getopts hbgsl:t:d: opt; do
   case $opt in
     b)
       BUILD=true
+      ;;
+    s)
+      SKIP_TEST=true
       ;;
     l)
       LANGS=$OPTARG
@@ -101,126 +106,131 @@ fi
 
 declare -A results
 declare -A mstimes
-for lang in $LANGS; do
-  cd $lang
-  for day in day??; do
-    if [ -n "$DAY" -a "day$DAY" != "$day" ]; then
-      continue
-    fi
-    cd $day
-    iod="../../io/$day"
-    for c in 1 2; do
-      part="part$c"
-      exe="$(current_target_prefix)$c"
-      out=$(mktemp)
-      start_time=$(date +%s%N)
-      timeout -k "$TIMEOUT" "$TIMEOUT" $exe < "$iod"/input.txt > "$out" 2> /dev/null
-      end_time=$(date +%s%N)
-      if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
-        rm $out
-        verdict='\033[32m+\033[0m' # green colored +
-        results[$lang,$day,$c]=1
-        
-        # start measuring timing
-        total_time=$(((end_time - start_time) / 1000000))
-        times_run=1
-        while [ $(echo "$total_time < $TIME_THRESH" | bc) -eq 1 ]; do
-          start_time=$(date +%s%N)
-          $exe < "$iod"/input.txt &> /dev/null
-          end_time=$(date +%s%N)
-          ms_time=$(((end_time - start_time) / 1000000))
-          total_time=$((total_time + ms_time))
-          times_run=$((times_run + 1))
-        done
-        avg_time=$((total_time / times_run))
-        mstimes[$lang,$day,$c]=$avg_time
-        printf "%8s $day $part $verdict [%02d]:(%dms)\n" "$lang" "$times_run" "$avg_time"
-      else
-        verdict='\033[31m-\033[0m' # red colored -
-        printf "%8s $day $part $verdict\n" "$lang" 
+if ! $SKIP_TEST; then
+  for lang in $LANGS; do
+    cd $lang
+    for day in day??; do
+      if [ -n "$DAY" -a "day$DAY" != "$day" ]; then
+        continue
       fi
+      cd $day
+      iod="../../io/$day"
+      for c in 1 2; do
+        part="part$c"
+        exe="$(current_target_prefix)$c"
+        out=$(mktemp)
+        start_time=$(date +%s%N)
+        timeout -k "$TIMEOUT" "$TIMEOUT" $exe < "$iod"/input.txt > "$out" 2> /dev/null
+        end_time=$(date +%s%N)
+        if diff -w "$out" "$iod"/"$part"_output.txt &> /dev/null; then
+          rm $out
+          verdict='\033[32m+\033[0m' # green colored +
+          results[$lang,$day,$c]=1
+          
+          # start measuring timing
+          total_time=$(((end_time - start_time) / 1000000))
+          times_run=1
+          while [ $(echo "$total_time < $TIME_THRESH" | bc) -eq 1 ]; do
+            start_time=$(date +%s%N)
+            $exe < "$iod"/input.txt &> /dev/null
+            end_time=$(date +%s%N)
+            ms_time=$(((end_time - start_time) / 1000000))
+            total_time=$((total_time + ms_time))
+            times_run=$((times_run + 1))
+          done
+          avg_time=$((total_time / times_run))
+          mstimes[$lang,$day,$c]=$avg_time
+          printf "%8s $day $part $verdict [%02d]:(%dms)\n" "$lang" "$times_run" "$avg_time"
+        else
+          verdict='\033[31m-\033[0m' # red colored -
+          printf "%8s $day $part $verdict\n" "$lang" 
+        fi
+      done
+      cd ..
     done
     cd ..
   done
-  cd ..
-done
+fi
 
 if $GENERATE; then
   # Could do all in one loop by inverting previous, but meh!
   exec 5>&1
-  exec 1>correctness.md
+  
+  if ! $SKIP_TEST; then
+    exec 1>correctness.md
 
-  cols="problem $LANGS"
-  for header in $cols; do
-    echo -n "| ${header^}"
-  done
-  echo "|"
-
-  for _ in $cols; do
-    echo -n "| :---: "
-  done
-  echo "|"
-
-  for day in $DAYS; do
-    for c in 1 2; do
-      echo -n "| ${day^} - Part $c |"
-      for lang in $LANGS; do
-        if [[ ${results[$lang,$day,$c]} == 1 ]]; then
-          echo -n " ✅ |"
-        else
-          echo -n "   |"
-        fi
-      done
-      echo
+    cols="problem $LANGS"
+    for header in $cols; do
+      echo -n "| ${header^}"
     done
-  done
+    echo "|"
 
-  exec 1>mstimes.md
+    for _ in $cols; do
+      echo -n "| :---: "
+    done
+    echo "|"
 
-  cols="problem $LANGS"
-  for header in $cols; do
-    echo -n "| ${header^}"
-  done
-  echo "|"
-
-  for _ in $cols; do
-    echo -n "| :---: "
-  done
-  echo "|"
-
-  for day in $DAYS; do
-    for c in 1 2; do
-      echo -n "| ${day^} - Part $c |"
-      for lang in $LANGS; do
-        if [[ ${results[$lang,$day,$c]} == 1 ]]; then
-          ms_time=${mstimes[$lang,$day,$c]}
-          check=$(bc <<< "$ms_time < 10")
-          if [[ $check == 1 ]]; then
-            echo -n " <10ms |"
+    for day in $DAYS; do
+      for c in 1 2; do
+        echo -n "| ${day^} - Part $c |"
+        for lang in $LANGS; do
+          if [[ ${results[$lang,$day,$c]} == 1 ]]; then
+            echo -n " ✅ |"
           else
-            echo -n " $ms_time""ms |"
+            echo -n "   |"
           fi
-        else
-          echo -n " N/A |"
-        fi
+        done
+        echo
       done
-      echo
     done
-  done
+
+    exec 1>mstimes.md
+
+    cols="problem $LANGS"
+    for header in $cols; do
+      echo -n "| ${header^}"
+    done
+    echo "|"
+
+    for _ in $cols; do
+      echo -n "| :---: "
+    done
+    echo "|"
+
+    for day in $DAYS; do
+      for c in 1 2; do
+        echo -n "| ${day^} - Part $c |"
+        for lang in $LANGS; do
+          if [[ ${results[$lang,$day,$c]} == 1 ]]; then
+            ms_time=${mstimes[$lang,$day,$c]}
+            check=$(bc <<< "$ms_time < 10")
+            if [[ $check == 1 ]]; then
+              echo -n " <10ms |"
+            else
+              echo -n " $ms_time""ms |"
+            fi
+          else
+            echo -n " N/A |"
+          fi
+        done
+        echo
+      done
+    done
+  fi
 
   exec 1>README.md
 
   INCLUDE_REGEX='^@include[ \t]*([a-zA-Z0-9._-]+)$'
-  while read ln; do
+  while IFS= read ln; do
     if [[ $ln =~ $INCLUDE_REGEX ]]; then
       include_file=${BASH_REMATCH[1]}
       cat "$include_file"
     else
-      echo $ln
+      printf '%s\n' "$ln"
     fi
   done < readme_template.md
 
-  rm -f mstimes.md correctness.md
+  # rm -f mstimes.md correctness.md
 
   exec 1>&5
 fi
