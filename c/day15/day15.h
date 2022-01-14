@@ -4,7 +4,17 @@
 #include <stdint.h>
 #include <assert.h>
 
-#define N 512
+#ifndef N
+#error N must be defined.
+#endif
+
+#ifndef COST_MAX
+#error COST_MAX must be defined.
+#endif
+
+#ifndef STACK_CAP
+#error STACK_CAP must be defined.
+#endif
 
 typedef uint64_t ugrid_t[N][N];
 typedef uint8_t bytegrid_t[N][N];
@@ -13,8 +23,6 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef int16_t i16;
 
-#define STACK_CAP 255
-#define COST_MAX  9000
 
 struct pos {
     i16 i, j;
