@@ -7,7 +7,7 @@
 #include "dheap/dheap.h"
 #include "dhashtable/dhashtable.h"
 
-#define ROOM_HEIGHT     2
+#define ROOM_HEIGHT     4
 #define HALLWAY_LEN     11
 #define HW_COMPACT_LEN  7
 #define AMPHS_PER_TYPE  ROOM_HEIGHT
@@ -172,8 +172,15 @@ static void read_burrow(burrow_t *burrow)
     // Read the room, in other words (!): 空気を読め！
     
     // Read them all up for later scanning
-    for (k = 0; k < ROOM_HEIGHT; k++)
-        assert (fgets(room_buf[k], 16, stdin));
+    for (k = 0; k < ROOM_HEIGHT; k++) {
+        if (k == 1) {
+            strcpy(room_buf[k], "  #D#C#B#A#");
+        } else if (k == 2) {
+            strcpy(room_buf[k], "  #D#B#A#C#");
+        } else {
+            assert (fgets(room_buf[k], 16, stdin));
+        }
+    }
 
     // Now, scan each room
     for (k = 0; k < 4; k++) { // Iterate rooms from 1 to 4
