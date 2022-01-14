@@ -285,12 +285,20 @@ static int amphipods_organized(const burrow_t *burrow)
 
 #define GOLDEN_RATIO_64 0x61C8864680B583EBull
 
+static inline u64 hash_u64(u64 x)
+{
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    x = x ^ (x >> 31);
+    return x;
+}
+
 static u64 hash_burrow(const void *burrow)
 {
     const u64 *arr = (const u64 *) burrow;
-    u64 seed = arr[0] * GOLDEN_RATIO_64;
-    seed ^= arr[1] * GOLDEN_RATIO_64 + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    return seed;
+    u64 seed = hash_u64(arr[0]);
+    seed ^= hash_u64(arr[1]) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    return hash_u64(seed);
 }
 
 static int eq_burrow(const void *b1, const void *b2)
