@@ -203,12 +203,7 @@ if $GENERATE; then
         for lang in $LANGS; do
           if [[ ${results[$lang,$day,$c]} == 1 ]]; then
             ms_time=${mstimes[$lang,$day,$c]}
-            check=$(bc <<< "$ms_time < 10")
-            if [[ $check == 1 ]]; then
-              echo -n " <10ms |"
-            else
-              echo -n " $ms_time""ms |"
-            fi
+            echo -n " $ms_time""ms |"
           else
             echo -n " N/A |"
           fi
