@@ -344,28 +344,37 @@ burrow_t *copy_burrow(const burrow_t *burrow)
 static const u16 ROOM_X[] = { 2, 4, 6, 8 };
 static const u16 HALLWAY_X[] = { 0, 1, 3, 5, 7, 9, 10 };
 
+static inline u32 triang(u32 n) 
+{ 
+    static const u32 arr[] = { 0, 1, 3, 6, 10 };
+    dbgassert(n <= 4);
+    return arr[n]; 
+}
+
+static inline u64 max(u64 x, u64 y) { return x > y ? x : y; }
+
 static u64 no_collision_cost(const burrow_t *burrow)
 {
     u16 fills = burrow->room_fills;
-    u64 cost = 0;
+    u64 cost = 1111 * triang(ROOM_HEIGHT);
 
     // Count the pods in the room stacks
     for (int r = 0; r < 4; r++) {
         u16 stk = burrow->room_stacks[r];
         u16 fc = get4(fills, r);
+        dbgassert (fc <= 4);
+        cost -= amph_move_cost(r2c(r)) * (triang(ROOM_HEIGHT) - triang(ROOM_HEIGHT - fc));
         if (stk) {
             int size = stk_size(stk);
-            while (size--) {
+            while (size) {
                 u16 top = stk & 0xF;
                 int target_r = c2r(top);
                 u64 up = ROOM_HEIGHT + 1 - size - fc;
-                u64 horiz = abs(r - target_r) << 1;
-                u64 down = ROOM_HEIGHT - get4(fills, target_r);
+                u64 horiz = max(abs(r - target_r) << 1, 2); // Need to move aside and back even for own room
 //                 printf("%lu %lu %lu\n", up, horiz, down);
-                horiz = horiz == 0 ? 2 : horiz;
-                cost += amph_move_cost(top) * (up + down + horiz);
+                cost += amph_move_cost(top) * (up + horiz);
                 stk >>= 4;
-                fills = incr4(fills, target_r);
+                size--;
             }
         }
     }
@@ -376,8 +385,7 @@ static u64 no_collision_cost(const burrow_t *burrow)
         if (is_amph(code)) {
             u16 target_r = c2r(code);
             u64 horiz = abs(ROOM_X[target_r] - HALLWAY_X[i]);
-            u64 down = ROOM_HEIGHT - get4(fills, target_r);
-            cost += amph_move_cost(code) * (horiz + down);
+            cost += amph_move_cost(code) * horiz;
             fills = incr4(fills, target_r);
         }
     }
@@ -397,7 +405,7 @@ static void add_neighbor_to_search(dhashtable_t *costs, dheap_t *heap,
     if (tentative_cost < p->value) {
         // Less than old distance
         p->value = tentative_cost;
-        dheap_add(heap, neighbor, tentative_cost + heuristic(neighbor));
+        dheap_add(heap, neighbor, tentative_cost + neighbor->h_cost);
     }
 }
 
@@ -410,16 +418,16 @@ void day23_main(int part2)
     dhashtable_init(&costs, &burrow_ops);
 
     read_burrow(initial_burrow, part2);
+    initial_burrow->h_cost = heuristic(initial_burrow);
     dhashtable_insert(&costs, initial_burrow, 0);
-    dheap_add(&heap, initial_burrow, heuristic(initial_burrow));
+    dheap_add(&heap, initial_burrow, initial_burrow->h_cost);
 
     while (!dheap_empty(&heap)) {
         u64 current_f_cost = dheap_min(&heap);
-        u64 current_cost;
         struct dhashtable_pair *p;
         const burrow_t *burrow = dheap_min_key(&heap); // CAREFUL to restore if modif!!!
+        u64 current_cost = current_f_cost - burrow->h_cost;
         dheap_pop_min(&heap);
-        current_cost = current_f_cost - heuristic(burrow);
 
         if (amphipods_organized(burrow)) {
             printf("%lu\n", current_cost);
@@ -435,17 +443,32 @@ void day23_main(int part2)
             if (stk) { // Amphs to empty out
                 u16 top = stk & 0xF;
                 u16 fill = get4(burrow->room_fills, room);
-                u64 vcost = ROOM_HEIGHT + 1 - stk_size(stk) - fill; // cost to get out of the room
+                u64 vert = ROOM_HEIGHT + 1 - stk_size(stk) - fill; // cost to get out
+                u64 amc = amph_move_cost(top);
+
                 u16 popd = stk >> 4;
                 for (int l = room + 1; l >= 0; l--) {
                     if (get4(burrow->hallway, l)) { // != 0, contains a pod
                         break;
                     } else {
                         burrow_t *neighbor = copy_burrow(burrow);
-                        u64 hcost = abs(ROOM_X[room] - HALLWAY_X[l]); 
-                        u64 tent_cost = current_cost + amph_move_cost(top) * (vcost + hcost);
+                        u64 horiz = abs(ROOM_X[room] - HALLWAY_X[l]); 
+                        u64 tent_cost = current_cost + amc * (vert + horiz);
                         neighbor->room_stacks[room] = popd;
                         neighbor->hallway = set4(burrow->hallway, l, top);
+
+                        // Need to update the heuristic!
+                        // Subtract vert since we're out of the room.
+                        // Horizontal needs a more significant update:
+                        // we may have gotten closer to the room, or further
+                        // from it... Best to just change it completely.
+                        int target_room = c2r(top);
+                        u64 prev_horiz_diff = max(abs(room - target_room) << 1, 2); 
+                        u64 new_horiz_diff = abs(HALLWAY_X[l] - ROOM_X[target_room]);
+                        neighbor->h_cost -= amc * (vert + prev_horiz_diff);
+                        neighbor->h_cost += amc * new_horiz_diff;
+                        dbgassert (neighbor->h_cost == heuristic(neighbor));
+
                         add_neighbor_to_search(&costs, &heap, neighbor, tent_cost);
                     }
                 }
@@ -455,10 +478,18 @@ void day23_main(int part2)
                     } else {
                         // Spot exists, create neighbor & add it
                         burrow_t *neighbor = copy_burrow(burrow);
-                        u64 hcost = abs(ROOM_X[room] - HALLWAY_X[r]); 
-                        u64 tent_cost = current_cost + amph_move_cost(top) * (vcost + hcost);
+                        u64 horiz = abs(ROOM_X[room] - HALLWAY_X[r]); 
+                        u64 tent_cost = current_cost + amc * (vert + horiz);
                         neighbor->room_stacks[room] = popd;
                         neighbor->hallway = set4(burrow->hallway, r, top);
+                       
+                        // Same as above
+                        int target_room = c2r(top);
+                        u64 prev_horiz_diff = max(abs(room - target_room) << 1, 2); 
+                        u64 new_horiz_diff = abs(HALLWAY_X[r] - ROOM_X[target_room]);
+                        neighbor->h_cost -= amc * (vert + prev_horiz_diff - new_horiz_diff);
+                        dbgassert (neighbor->h_cost == heuristic(neighbor));
+
                         add_neighbor_to_search(&costs, &heap, neighbor, tent_cost);
                     }
                 }
@@ -496,9 +527,16 @@ void day23_main(int part2)
                         burrow_t *neighbor = copy_burrow(burrow);
                         u64 hcost = abs(ROOM_X[room] - HALLWAY_X[i]);
                         u64 vcost = ROOM_HEIGHT - fill;
-                        u64 tent_cost = current_cost + amph_move_cost(code) * (vcost + hcost);
+                        u64 move_cost = amph_move_cost(code) * (vcost + hcost);
+                        u64 tent_cost = current_cost + move_cost;
                         neighbor->hallway = clear4(burrow->hallway, i);
                         neighbor->room_fills = incr4(burrow->room_fills, room);
+
+                        // Updating the heuristic for this one is easier...
+                        // Just subtract the move cost, we were not blocked anyway!
+                        neighbor->h_cost -= move_cost;
+                        dbgassert (neighbor->h_cost == heuristic(neighbor));
+
                         add_neighbor_to_search(&costs, &heap, neighbor, tent_cost);
                     }
                 }
